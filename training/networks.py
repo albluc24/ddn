@@ -4,13 +4,15 @@
 # Attribution-NonCommercial-ShareAlike 4.0 International License.
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
-
 """Model architectures and preconditioning schemes used in the paper
 "Elucidating the Design Space of Diffusion-Based Generative Models"."""
-
+import boxx
 import numpy as np
 import torch
-from torch_utils import persistence
+
+# with boxx.impt(".."):
+import torch_utils
+from torch_utils import persistence, misc
 from torch.nn.functional import silu
 
 # ----------------------------------------------------------------------------
@@ -563,6 +565,7 @@ class SongUNet(torch.nn.Module):
                 self.dec[f"{res}x{res}_aux_conv"] = Conv2d(
                     in_channels=cout, out_channels=out_channels, kernel=3, **init_zero
                 )
+        boxx.mg()
 
     def forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
@@ -613,6 +616,17 @@ class SongUNet(torch.nn.Module):
                 x = block(x, emb)
         return aux
 
+
+if __name__ == "__main__":
+    img_resolution, in_channels, out_channels = 32, 3, 3
+
+    net = SongUNet(img_resolution, in_channels, out_channels).cuda()
+    params = [
+        torch.randn(shape).cuda() for shape in [(2, 3, 32, 32), (2,), (2, 0), (2, 9)]
+    ]
+    params[0][:] = 0
+    # out = net(*params)
+    out = misc.print_module_summary(net, params, max_nesting=1)
 
 # ----------------------------------------------------------------------------
 # Reimplementation of the ADM architecture from the paper
@@ -1088,6 +1102,7 @@ class EDMPrecond(torch.nn.Module):
         )
         assert F_x.dtype == dtype
         D_x = c_skip * x + c_out * F_x.to(torch.float32)
+        # boxx.cf.debug and boxx.g()
         return D_x
 
     def round_sigma(self, sigma):

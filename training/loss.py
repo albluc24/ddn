@@ -4,6 +4,7 @@
 # Attribution-NonCommercial-ShareAlike 4.0 International License.
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
+import boxx
 
 """Loss functions used in the paper
 "Elucidating the Design Space of Diffusion-Based Generative Models"."""
@@ -88,6 +89,7 @@ class EDMLoss:
         n = torch.randn_like(y) * sigma
         D_yn = net(y + n, sigma, labels, augment_labels=augment_labels)
         loss = weight * ((D_yn - y) ** 2)
+        boxx.cf.debug and boxx.g()
         return loss
 
 

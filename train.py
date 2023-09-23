@@ -248,7 +248,7 @@ def main(**kwargs):
         --data=datasets/cifar10-32x32.zip --cond=1 --arch=ddpmpp
     """
     opts = dnnlib.EasyDict(kwargs)
-    torch.multiprocessing.set_start_method("spawn")
+    torch.multiprocessing.set_start_method("spawn", force=True)
     dist.init()
 
     # Initialize config dict.
@@ -441,12 +441,46 @@ def main(**kwargs):
         )
 
     # Train.
+    boxx.mg()
     training_loop.training_loop(**c)
 
 
 # ----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    main()
+    import sys
+    import boxx
+    from boxx.ylth import *
 
+    sys.path.append(os.path.abspath("."))
+    args, argkv = boxx.getArgvDic()
+    cudan = torch.cuda.device_count()
+    debug = not cudan or torch.cuda.get_device_capability("cuda") <= (6, 9)
+    if argkv.get("debug"):
+        debug = True
+    if debug:
+        import training
+        import importlib
+
+        # importlib.reload(torch.distributed)
+        torch.distributed.GroupMember.WORLD = None
+        boxx.cf.debug = True
+        main(
+            [
+                "--data",
+                "datasets/cifar10-32x32.zip",
+                "--outdir",
+                "/tmp/edm-code",
+                "--duration",
+                "0.000001",
+                "--batch",
+                "6",
+                "--batch-gpu",
+                "2",
+                "--cbase",
+                "4",
+            ]
+        )
+    else:
+        main()
 # ----------------------------------------------------------------------------

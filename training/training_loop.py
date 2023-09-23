@@ -5,6 +5,8 @@
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 
+import boxx
+
 """Main training loop."""
 
 import os
@@ -296,9 +298,11 @@ def training_loop(
         tick_start_nimg = cur_nimg
         tick_start_time = time.time()
         maintenance_time = tick_start_time - tick_end_time
+        if boxx.cf.debug and cur_nimg >= 4:
+            boxx.g()
+            done = True
         if done:
             break
-
     # Done.
     dist.print0()
     dist.print0("Exiting...")

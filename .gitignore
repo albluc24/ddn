@@ -1,5 +1,7 @@
 ﻿# Customized
 tmp_*
+datasets/
+fid-*
 
 # ignore
 .vscode
