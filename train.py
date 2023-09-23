@@ -124,7 +124,7 @@ def parse_int_list(s):
     help="EMA half-life",
     metavar="MIMG",
     type=click.FloatRange(min=0),
-    default=0.5,
+    default=0,
     show_default=True,
 )
 @click.option(

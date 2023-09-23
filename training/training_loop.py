@@ -188,13 +188,15 @@ def training_loop(
         optimizer.step()
 
         # Update EMA.
-        ema_halflife_nimg = ema_halflife_kimg * 1000
-        if ema_rampup_ratio is not None:
-            ema_halflife_nimg = min(ema_halflife_nimg, cur_nimg * ema_rampup_ratio)
-        ema_beta = 0.5 ** (batch_size / max(ema_halflife_nimg, 1e-8))
-        for p_ema, p_net in zip(ema.parameters(), net.parameters()):
-            p_ema.copy_(p_net.detach().lerp(p_ema, ema_beta))
-
+        if ema_halflife_kimg:
+            ema_halflife_nimg = ema_halflife_kimg * 1000
+            if ema_rampup_ratio is not None:
+                ema_halflife_nimg = min(ema_halflife_nimg, cur_nimg * ema_rampup_ratio)
+            ema_beta = 0.5 ** (batch_size / max(ema_halflife_nimg, 1e-8))
+            for p_ema, p_net in zip(ema.parameters(), net.parameters()):
+                p_ema.copy_(p_net.detach().lerp(p_ema, ema_beta))
+        else:
+            ema = ema.to("cpu")
         # Perform maintenance tasks once per tick.
         cur_nimg += batch_size
         done = cur_nimg >= total_kimg * 1000
@@ -244,6 +246,9 @@ def training_loop(
 
         # Save network snapshot.
         if (snapshot_ticks is not None) and (done or cur_tick % snapshot_ticks == 0):
+            if not ema_halflife_kimg:
+                # TODO 适配和打开 EMA 让 split 支持 EMA
+                ema = copy.deepcopy(net).eval().requires_grad_(False)
             data = dict(
                 ema=ema,
                 loss_fn=loss_fn,
