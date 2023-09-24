@@ -10,6 +10,10 @@ import boxx
 import numpy as np
 import torch
 
+if __name__ == "__main__":
+    import sys
+
+    sys.path.append("..")
 # with boxx.impt(".."):
 import torch_utils
 from torch_utils import persistence, misc
@@ -125,6 +129,8 @@ class Conv2d(torch.nn.Module):
         )
         w_pad = w.shape[-1] // 2 if w is not None else 0
         f_pad = (f.shape[-1] - 1) // 2 if f is not None else 0
+        w_pad = int(w_pad)
+        f_pad = int(f_pad)
 
         if self.fused_resample and self.up and w is not None:
             x = torch.nn.functional.conv_transpose2d(
@@ -527,7 +533,7 @@ class SongUNet(torch.nn.Module):
         skips = [
             block.out_channels for name, block in self.enc.items() if "aux" not in name
         ]
-
+        # boxx.g()/0
         # Decoder.
         self.dec = torch.nn.ModuleDict()
         for level, mult in reversed(list(enumerate(channel_mult))):
@@ -566,6 +572,7 @@ class SongUNet(torch.nn.Module):
                     in_channels=cout, out_channels=out_channels, kernel=3, **init_zero
                 )
         boxx.mg()
+        boxx.cf.debug and boxx.g()
 
     def forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
@@ -617,16 +624,417 @@ class SongUNet(torch.nn.Module):
         return aux
 
 
-if __name__ == "__main__":
-    img_resolution, in_channels, out_channels = 32, 3, 3
+from sddn import DiscreteDistributionOutput
 
-    net = SongUNet(img_resolution, in_channels, out_channels).cuda()
-    params = [
-        torch.randn(shape).cuda() for shape in [(2, 3, 32, 32), (2,), (2, 0), (2, 9)]
-    ]
-    params[0][:] = 0
-    # out = net(*params)
-    out = misc.print_module_summary(net, params, max_nesting=1)
+
+@persistence.persistent_class
+class UNetBlockWoEmb(torch.nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        emb_channels,
+        up=False,
+        down=False,
+        attention=False,
+        num_heads=None,
+        channels_per_head=64,
+        dropout=0,
+        skip_scale=1,
+        eps=1e-5,
+        resample_filter=[1, 1],
+        resample_proj=False,
+        adaptive_scale=True,
+        init=dict(),
+        init_zero=dict(init_weight=0),
+        init_attn=None,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        # self.emb_channels = emb_channels
+        self.num_heads = (
+            0
+            if not attention
+            else num_heads
+            if num_heads is not None
+            else out_channels // channels_per_head
+        )
+        self.dropout = dropout
+        self.skip_scale = skip_scale
+        self.adaptive_scale = adaptive_scale
+
+        self.norm0 = GroupNorm(num_channels=in_channels, eps=eps)
+        self.conv0 = Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel=3,
+            up=up,
+            down=down,
+            resample_filter=resample_filter,
+            **init,
+        )
+        # self.affine = Linear(
+        #     in_features=emb_channels,
+        #     out_features=out_channels * (2 if adaptive_scale else 1),
+        #     **init,
+        # )
+        self.norm1 = GroupNorm(num_channels=out_channels, eps=eps)
+        self.conv1 = Conv2d(
+            in_channels=out_channels, out_channels=out_channels, kernel=3, **init_zero
+        )
+
+        self.skip = None
+        if out_channels != in_channels or up or down:
+            kernel = 1 if resample_proj or out_channels != in_channels else 0
+            self.skip = Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel=kernel,
+                up=up,
+                down=down,
+                resample_filter=resample_filter,
+                **init,
+            )
+
+        if self.num_heads:
+            self.norm2 = GroupNorm(num_channels=out_channels, eps=eps)
+            self.qkv = Conv2d(
+                in_channels=out_channels,
+                out_channels=out_channels * 3,
+                kernel=1,
+                **(init_attn if init_attn is not None else init),
+            )
+            self.proj = Conv2d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                kernel=1,
+                **init_zero,
+            )
+
+    def forward(self, x, emb=None):
+        orig = x
+        x = self.conv0(silu(self.norm0(x)))
+
+        # params = self.affine(emb).unsqueeze(2).unsqueeze(3).to(x.dtype)
+        # if self.adaptive_scale:
+        #     scale, shift = params.chunk(chunks=2, dim=1)
+        #     x = silu(torch.addcmul(shift, self.norm1(x), scale + 1))
+        # else:
+        #     x = silu(self.norm1(x.add_(params)))
+        x = silu(self.norm1(x))
+        x = self.conv1(
+            torch.nn.functional.dropout(x, p=self.dropout, training=self.training)
+        )
+        x = x.add_(self.skip(orig) if self.skip is not None else orig)
+        x = x * self.skip_scale
+
+        if self.num_heads:
+            q, k, v = (
+                self.qkv(self.norm2(x))
+                .reshape(
+                    x.shape[0] * self.num_heads, x.shape[1] // self.num_heads, 3, -1
+                )
+                .unbind(2)
+            )
+            w = AttentionOp.apply(q, k)
+            a = torch.einsum("nqk,nck->ncq", w, v)
+            x = self.proj(a.reshape(*x.shape)).add_(x)
+            x = x * self.skip_scale
+        return x
+
+
+@persistence.persistent_class
+class DiscreteDistributionBlock(torch.nn.Module):
+    def __init__(
+        self,
+        block,
+        k=64,
+        output_size=None,
+        in_c=None,
+        out_c=None,
+        predict_c=3,
+        loss_func=None,
+        distance_func=None,
+        leak_choice=True,
+    ):
+        super().__init__()
+        self.block = block
+        self.in_c = (
+            in_c or getattr(block, "in_c", None) or getattr(block, "in_channels", None)
+        )
+        self.out_c = (
+            out_c
+            or getattr(block, "out_c", None)
+            or getattr(block, "out_channels", None)
+        )
+        self.predict_c = predict_c
+        self.leak_choice = leak_choice
+
+        self.choice_conv1x1 = torch.nn.Conv2d(predict_c, self.in_c, (1, 1), bias=False)
+        if leak_choice:
+            self.leak_conv1x1 = torch.nn.Conv2d(
+                predict_c, self.in_c, (1, 1), bias=False
+            )
+        self.ddo = DiscreteDistributionOutput(
+            k,
+            last_c=self.out_c,
+            predict_c=predict_c,
+            size=output_size,
+            loss_func=loss_func,
+            distance_func=distance_func,
+            leak_choice=leak_choice,
+        )
+        self.output_size = output_size
+
+    def forward(self, d=None):
+        d = d or {}
+        if "target" in d:
+            batch_size = len(d["target"])
+        else:
+            batch_size = d.get("batch_size", 1)
+        inp = d.get("feat_last")
+        predict = d.get("predict")
+        feat_leak = d.get("feat_leak")
+        if inp is None:
+            inp = torch.cat(
+                [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
+                * batch_size
+            ).cuda()
+            predict = torch.cat(
+                [torch.linspace(-1, 1, self.predict_c).reshape(1, self.predict_c, 1, 1)]
+                * batch_size
+            ).cuda()
+            feat_leak = predict
+        inp.add_(self.choice_conv1x1(predict))
+        if self.leak_choice:
+            inp.add_(self.leak_conv1x1(feat_leak))
+        d["feat_last"] = self.block(inp)
+        d = self.ddo(d)
+        return d
+
+
+def get_channeln(leveli):
+    channeln = 2 ** (13 - leveli)
+    return min(max(4, channeln), 256)
+
+
+def get_k(leveli):
+    k = 4 * get_channeln(leveli)
+    return min(max(16, k), 1024)
+
+
+def get_blockn(leveli):
+    leveli_to_blockn = {
+        0: 1,
+        1: 2,
+        2: 4,
+        3: 8,
+        4: 8,
+    }
+    if leveli not in leveli_to_blockn:
+        leveli_to_blockn[leveli] = max(leveli_to_blockn.values())
+    return leveli_to_blockn[leveli]
+
+
+@persistence.persistent_class
+class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
+    def __init__(
+        self,
+        img_resolution=32,  # Image resolution at input/output.
+        in_channels=3,  # Number of color channels at input.
+        out_channels=3,  # Number of color channels at output.
+        label_dim=0,  # Number of class labels, 0 = unconditional.
+        augment_dim=0,  # Augmentation label dimensionality, 0 = no augmentation.
+        model_channels=128,  # Base multiplier for the number of channels.
+        channel_mult=[
+            1,
+            2,
+            2,
+            2,
+        ],  # Per-resolution multipliers for the number of channels.
+        channel_mult_emb=4,  # Multiplier for the dimensionality of the embedding vector.
+        num_blocks=4,  # Number of residual blocks per resolution.
+        attn_resolutions=[16],  # List of resolutions with self-attention.
+        dropout=0.10,  # Dropout probability of intermediate activations.
+        label_dropout=0,  # Dropout probability of class labels for classifier-free guidance.
+        embedding_type="positional",  # Timestep embedding type: 'positional' for DDPM++, 'fourier' for NCSN++.
+        channel_mult_noise=1,  # Timestep embedding size: 1 for DDPM++, 2 for NCSN++.
+        encoder_type="standard",  # Encoder architecture: 'standard' for DDPM++, 'residual' for NCSN++.
+        decoder_type="standard",  # Decoder architecture: 'standard' for both DDPM++ and NCSN++.
+        resample_filter=[
+            1,
+            1,
+        ],  # Resampling filter: [1,1] for DDPM++, [1,3,3,1] for NCSN++.
+    ):
+        assert embedding_type in ["fourier", "positional"]
+        assert encoder_type in ["standard", "skip", "residual"]
+        assert decoder_type in ["standard", "skip"]
+
+        super().__init__()
+        self.label_dropout = label_dropout
+        emb_channels = model_channels * channel_mult_emb
+        noise_channels = model_channels * channel_mult_noise
+        init = dict(init_mode="xavier_uniform")
+        init_zero = dict(init_mode="xavier_uniform", init_weight=1e-5)
+        init_attn = dict(init_mode="xavier_uniform", init_weight=np.sqrt(0.2))
+        block_kwargs = dict(
+            emb_channels=emb_channels,
+            num_heads=1,
+            dropout=dropout,
+            skip_scale=np.sqrt(0.5),
+            eps=1e-6,
+            resample_filter=resample_filter,
+            resample_proj=True,
+            adaptive_scale=False,
+            init=init,
+            init_zero=init_zero,
+            init_attn=init_attn,
+        )
+
+        self.module_names = []
+
+        def set_block(name, block):
+            self.module_names.append(name)
+            setattr(self, name, block)
+            return block
+
+        self.leveln = int(np.log2(img_resolution))
+
+        for leveli in range(self.leveln + 1):
+            size = 2**leveli
+            channeln = get_channeln(leveli)
+            last_channeln = get_channeln(leveli - 1)
+            k = get_k(leveli)
+            if not leveli:  # level0 only 1 block
+                block = UNetBlockWoEmb(channeln, channeln, **block_kwargs)
+                set_block(
+                    "block_1x1_0", DiscreteDistributionBlock(block, k, output_size=size)
+                )
+                continue
+            # up block
+            block_up = UNetBlockWoEmb(
+                in_channels=last_channeln,
+                out_channels=last_channeln,
+                up=True,
+                **block_kwargs,
+            )
+            set_block(
+                f"block_{size}x{size}_0_up",
+                DiscreteDistributionBlock(block_up, k, output_size=size),
+            )
+            cin = last_channeln
+            for block_count in range(1, get_blockn(leveli)):
+                block = UNetBlockWoEmb(cin, channeln, **block_kwargs)
+                set_block(
+                    f"block_{size}x{size}_{block_count}",
+                    DiscreteDistributionBlock(block, k, output_size=size),
+                )
+                cin = channeln
+
+    def forward(self, d=None):
+        for name in self.module_names:
+            m = getattr(self, name)
+            d = m(d)
+        return d
+
+    def table(
+        self,
+    ):
+        import math
+
+        times = 1
+        mds = []
+        for name in self.module_names:
+            m = getattr(self, name)
+            k = m.ddo.k
+            c = (m.in_c, m.out_c)
+            s = m.output_size
+            times *= k
+            log2 = math.log2(times)
+            row = dict(
+                name=name,
+                s=s,
+                c=c,
+                k=k,
+                log2=log2,
+                log10=math.log10(times),
+            )
+            mds.append(row)
+        return boxx.Markdown(mds)
+
+    def get_sdds(self):
+        sdds = []
+        for name in self.module_names:
+            m = getattr(self, name)
+            sdds.append(m.ddo.sdd)
+        return sdds
+
+
+if __name__ == "__main__":
+    from boxx import *
+
+    img_resolution, in_channels, out_channels = 32, 3, 3
+    target = torch.zeros((2, 3, 32, 32)).cuda()
+    if "SongUNet" and 0:
+        net = SongUNet(img_resolution, in_channels, out_channels, num_blocks=2).cuda()
+        params = [
+            torch.randn(shape).cuda().requires_grad_(True)
+            for shape in [(2, 3, 32, 32), (2,), (2, 0), (2, 9)]
+        ]
+        params[0] = params[0] * 0
+        out = net(*params)
+        out = misc.print_module_summary(net, params, max_nesting=1)
+    if "DDN":
+        img_resolution = 128
+        net = PHDDN(img_resolution, in_channels, out_channels).cuda()
+        params = dict(target=target)
+        # d = net(params)
+        d = misc.print_module_summary(net.eval(), [], max_nesting=1)
+        print(net.table())
+        tree - d
+
+if 0:
+    # from torchviz import make_dot
+    # g = make_dot(out)
+    # g.render('modelviz', view=False)  # 这种方式会生成一个pdf文件
+    # MyConvNetVis = make_dot(out, params=dict(list(net.named_parameters()) + [('x', params[0])]))
+    # MyConvNetVis.format = "pdf"
+    # # 指定文件生成的文件夹
+    # MyConvNetVis.directory = "/tmp/data2"
+    # # 生成文件
+    # MyConvNetVis.view()
+    # torch.save(net, "/tmp/vis.pt")
+    import netron
+
+    def tensor_tile(tensor, repeats):
+        """
+        模拟tile()函数，使用torch.cat()和torch.repeat_interleave()。
+
+        参数:
+            tensor (torch.Tensor): 要进行重复操作的张量
+            repeats (list or tuple): 指示每个维度上的重复次数
+
+        返回:
+            torch.Tensor: 重复后的张量
+        """
+
+        # 根据参数repeats扩展张量
+        # expanded_tensor = torch.repeat_interleave(tensor, repeats[0], dim=0)
+
+        # 如果有多个维度需要重复，则迭代扩展剩余维度
+        for dim in range(0, len(repeats)):
+            # if repeats[dim] != 1:
+            tensor = torch.repeat_interleave(tensor, repeats[dim], dim)
+        return tensor
+
+    # def tensor_tile(tensor, repeats):
+
+    torch.Tensor.tile = tensor_tile
+    __import__("torch.onnx")
+    onnx_path = "/tmp/vis2.onnx"
+    torch.onnx.export(net, tuple(params), onnx_path)
+    netron.start(onnx_path)
 
 # ----------------------------------------------------------------------------
 # Reimplementation of the ADM architecture from the paper
