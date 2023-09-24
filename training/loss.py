@@ -94,3 +94,20 @@ class EDMLoss:
 
 
 # ----------------------------------------------------------------------------
+
+
+@persistence.persistent_class
+class DDNLoss:
+    def __init__(self, P_mean=-1.2, P_std=1.2, sigma_data=0.5):
+        self.P_mean = P_mean
+        self.P_std = P_std
+        self.sigma_data = sigma_data
+
+    def __call__(self, net, images, labels=None, augment_pipe=None):
+        y, augment_labels = (
+            augment_pipe(images) if augment_pipe is not None else (images, None)
+        )
+        d = net(dict(target=y))
+        loss = sum(d["losses"])
+        boxx.cf.debug and boxx.g()
+        return loss

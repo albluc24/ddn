@@ -788,7 +788,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
         self.output_size = output_size
 
     def forward(self, d=None):
-        d = d or {}
+        d = d if isinstance(d, dict) else {}
         if "target" in d:
             batch_size = len(d["target"])
         else:
@@ -806,9 +806,9 @@ class DiscreteDistributionBlock(torch.nn.Module):
                 * batch_size
             ).cuda()
             feat_leak = predict
-        inp.add_(self.choice_conv1x1(predict))
+        inp = inp + self.choice_conv1x1(predict)
         if self.leak_choice:
-            inp.add_(self.leak_conv1x1(feat_leak))
+            inp = inp + self.leak_conv1x1(feat_leak)
         d["feat_last"] = self.block(inp)
         d = self.ddo(d)
         return d
@@ -819,9 +819,13 @@ def get_channeln(leveli):
     return min(max(4, channeln), 256)
 
 
-def get_k(leveli):
+def get_k(leveli, predict_c=3):
+    # if predict_c == 1:
     k = 4 * get_channeln(leveli)
-    return min(max(16, k), 1024)
+    k = min(max(16, k), 1024)
+    if predict_c == 3:
+        k = k // 2
+    return k
 
 
 def get_blockn(leveli):
@@ -834,6 +838,8 @@ def get_blockn(leveli):
     }
     if leveli not in leveli_to_blockn:
         leveli_to_blockn[leveli] = max(leveli_to_blockn.values())
+    if boxx.cf.debug:
+        return 1
     return leveli_to_blockn[leveli]
 
 
@@ -932,7 +938,7 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
                 )
                 cin = channeln
 
-    def forward(self, d=None):
+    def forward(self, d=None, _sigma=None, labels=None):
         for name in self.module_names:
             m = getattr(self, name)
             d = m(d)
@@ -974,8 +980,11 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
 if __name__ == "__main__":
     from boxx import *
 
+    # from boxx.ylth import *
     img_resolution, in_channels, out_channels = 32, 3, 3
     target = torch.zeros((2, 3, 32, 32)).cuda()
+    torch.autograd.set_detect_anomaly(True)
+
     if "SongUNet" and 0:
         net = SongUNet(img_resolution, in_channels, out_channels, num_blocks=2).cuda()
         params = [
@@ -983,14 +992,18 @@ if __name__ == "__main__":
             for shape in [(2, 3, 32, 32), (2,), (2, 0), (2, 9)]
         ]
         params[0] = params[0] * 0
-        out = net(*params)
+        net = net.train()
         out = misc.print_module_summary(net, params, max_nesting=1)
     if "DDN":
-        img_resolution = 128
+        img_resolution = 4
         net = PHDDN(img_resolution, in_channels, out_channels).cuda()
         params = dict(target=target)
         # d = net(params)
-        d = misc.print_module_summary(net.eval(), [], max_nesting=1)
+        # d = misc.print_module_summary(net.eval(), [], max_nesting=1)
+        d = net.train()(params)
+        loss = sum(d["losses"])
+        # loss = d["losses"][0]
+        loss.backward()
         print(net.table())
         tree - d
 
@@ -1518,3 +1531,9 @@ class EDMPrecond(torch.nn.Module):
 
 
 # ----------------------------------------------------------------------------
+
+
+@persistence.persistent_class
+class DDNPrecond(EDMPrecond):
+    def forward(self, *args, **kwargs):
+        return self.model(*args, **kwargs)

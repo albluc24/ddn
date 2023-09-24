@@ -65,9 +65,10 @@ def parse_int_list(s):
 @click.option(
     "--arch",
     help="Network architecture",
-    metavar="ddpmpp|ncsnpp|adm",
-    type=click.Choice(["ddpmpp", "ncsnpp", "adm"]),
-    default="ddpmpp",
+    metavar="ddn|ddpmpp|ncsnpp|adm",
+    type=click.Choice(["ddn", "ddpmpp", "ncsnpp", "adm"]),
+    # default="ddpmpp",
+    default="ddn",
     show_default=True,
 )
 @click.option(
@@ -312,8 +313,7 @@ def main(**kwargs):
             model_channels=128,
             channel_mult=[2, 2, 2],
         )
-    else:
-        assert opts.arch == "adm"
+    elif opts.arch == "adm":
         c.network_kwargs.update(
             model_type="DhariwalUNet", model_channels=192, channel_mult=[1, 2, 3, 4]
         )
@@ -329,6 +329,11 @@ def main(**kwargs):
         assert opts.precond == "edm"
         c.network_kwargs.class_name = "training.networks.EDMPrecond"
         c.loss_kwargs.class_name = "training.loss.EDMLoss"
+
+    if opts.arch == "ddn":
+        c.network_kwargs.class_name = "training.networks.DDNPrecond"
+        c.network_kwargs.model_type = "PHDDN"
+        c.loss_kwargs.class_name = "training.loss.DDNLoss"
 
     # Network options.
     if opts.cbase is not None:
@@ -481,6 +486,9 @@ if __name__ == "__main__":
                 "4",
             ]
         )
+        from sddn import DiscreteDistributionOutput
+
+        DiscreteDistributionOutput.inits[-1].sdd.plot_dist()
     else:
         main()
 # ----------------------------------------------------------------------------

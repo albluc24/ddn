@@ -93,10 +93,9 @@ def training_loop(
         img_channels=dataset_obj.num_channels,
         label_dim=dataset_obj.label_dim,
     )
-    net = dnnlib.util.construct_class_by_name(
-        **network_kwargs, **interface_kwargs
+    net = dnnlib.util.construct_class_by_name(**network_kwargs, **interface_kwargs).to(
+        device
     )  # subclass of torch.nn.Module
-    net.train().requires_grad_(True).to(device)
     if dist.get_rank() == 0:
         with torch.no_grad():
             images = torch.zeros(
@@ -105,8 +104,10 @@ def training_loop(
             )
             sigma = torch.ones([batch_gpu], device=device)
             labels = torch.zeros([batch_gpu, net.label_dim], device=device)
-            misc.print_module_summary(net, [images, sigma, labels], max_nesting=2)
-
+            misc.print_module_summary(
+                net.eval(), [images, sigma, labels], max_nesting=2
+            )
+    net.train().requires_grad_(True)
     # Setup optimizer.
     dist.print0("Setting up optimizer...")
     loss_fn = dnnlib.util.construct_class_by_name(
@@ -173,7 +174,10 @@ def training_loop(
                     net=ddp, images=images, labels=labels, augment_pipe=augment_pipe
                 )
                 training_stats.report("Loss/loss", loss)
-                loss.sum().mul(loss_scaling / batch_gpu_total).backward()
+                loss_ = loss.sum().mul(loss_scaling / batch_gpu_total)
+                # TODO: loss_ up to 1044.4198
+                loss_.backward()
+                # boxx.g()/0
 
         # Update weights.
         for g in optimizer.param_groups:
@@ -197,6 +201,12 @@ def training_loop(
                 p_ema.copy_(p_net.detach().lerp(p_ema, ema_beta))
         else:
             ema = ema.to("cpu")
+
+        # Try splti all
+        from sddn import DiscreteDistributionOutput
+
+        DiscreteDistributionOutput.try_split_all()
+
         # Perform maintenance tasks once per tick.
         cur_nimg += batch_size
         done = cur_nimg >= total_kimg * 1000
@@ -303,7 +313,7 @@ def training_loop(
         tick_start_nimg = cur_nimg
         tick_start_time = time.time()
         maintenance_time = tick_start_time - tick_end_time
-        if boxx.cf.debug and cur_nimg >= 4:
+        if boxx.cf.debug and cur_nimg >= 12:
             boxx.g()
             done = True
         if done:
