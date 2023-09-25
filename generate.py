@@ -4,6 +4,7 @@
 # Attribution-NonCommercial-ShareAlike 4.0 International License.
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
+import boxx
 
 """Generate random images using the techniques described in the paper
 "Elucidating the Design Space of Diffusion-Based Generative Models"."""
@@ -21,6 +22,21 @@ from torch_utils import distributed as dist
 
 # ----------------------------------------------------------------------------
 # Proposed EDM sampler (Algorithm 2).
+
+
+def ddn_sampler(
+    net,
+    latents,
+    class_labels=None,
+    randn_like=torch.randn_like,
+    num_steps=18,
+    *args,
+    **kwargs,
+):
+    d = net({}, None, class_labels)
+    boxx.cf.debug and boxx.g()
+    show(d["predict"], frombgr)
+    return d["predict"]
 
 
 def edm_sampler(
@@ -434,8 +450,8 @@ def parse_int_list(s):
     "--disc",
     "discretization",
     help="Ablate time step discretization {t_i}",
-    metavar="vp|ve|iddpm|edm",
-    type=click.Choice(["vp", "ve", "iddpm", "edm"]),
+    metavar="ddn|vp|ve|iddpm|edm",
+    type=click.Choice(["ddn", "vp", "ve", "iddpm", "edm"]),
 )
 @click.option(
     "--schedule",
@@ -528,6 +544,8 @@ def main(
             for x in ["solver", "discretization", "schedule", "scaling"]
         )
         sampler_fn = ablation_sampler if have_ablation_kwargs else edm_sampler
+        if sampler_kwargs.get("discretization", "ddn") == "ddn":
+            sampler_fn = ddn_sampler
         images = sampler_fn(
             net, latents, class_labels, randn_like=rnd.randn_like, **sampler_kwargs
         )
@@ -560,6 +578,39 @@ def main(
 # ----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    main()
+    import sys
+    import boxx
+    from boxx.ylth import *
+
+    sys.path.append(os.path.abspath("."))
+    args, argkv = boxx.getArgvDic()
+    cudan = torch.cuda.device_count()
+    debug = (
+        not cudan
+        or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
+    )
+    if argkv.get("debug"):
+        debug = True
+    if debug:
+        import training
+        import importlib
+
+        # importlib.reload(torch.distributed)
+        torch.distributed.GroupMember.WORLD = None
+        boxx.cf.debug = True
+        main(
+            [
+                "--seeds=0-4",
+                "--network=cifar10-ddn.pkl",
+                "--outdir=/tmp/gen_ddn",
+                "--batch",
+                "1",
+            ]
+        )
+        from sddn import DiscreteDistributionOutput
+
+        DiscreteDistributionOutput.inits[-1].sdd.plot_dist()
+    else:
+        main()
 
 # ----------------------------------------------------------------------------

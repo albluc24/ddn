@@ -460,7 +460,10 @@ if __name__ == "__main__":
     sys.path.append(os.path.abspath("."))
     args, argkv = boxx.getArgvDic()
     cudan = torch.cuda.device_count()
-    debug = not cudan or torch.cuda.get_device_capability("cuda") <= (6, 9)
+    debug = (
+        not cudan
+        or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
+    )
     if argkv.get("debug"):
         debug = True
     if debug:
@@ -472,18 +475,13 @@ if __name__ == "__main__":
         boxx.cf.debug = True
         main(
             [
-                "--data",
-                "datasets/cifar10-32x32.zip",
-                "--outdir",
-                "/tmp/edm-code",
-                "--duration",
-                "0.000001",
-                "--batch",
-                "6",
-                "--batch-gpu",
-                "2",
-                "--cbase",
-                "4",
+                "--data=datasets/cifar10-32x32.zip",
+                "--outdir=/tmp/edm-code",
+                "--duration=0.000001",
+                "--batch=6",
+                "--batch-gpu=2",
+                "--cbase=4",
+                # "--arch=ddpmpp"
             ]
         )
         from sddn import DiscreteDistributionOutput
