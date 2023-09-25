@@ -108,6 +108,7 @@ class DDNLoss:
             augment_pipe(images) if augment_pipe is not None else (images, None)
         )
         d = net(dict(target=y))
-        loss = sum(d["losses"])
+        loss = sum(d["losses"]) / len(d["losses"])  # mean Hierarchical
+        loss = loss * y.numel()  # EDM code is using .sum() instead of .mean()
         boxx.cf.debug and boxx.g()
         return loss
