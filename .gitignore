@@ -1,4 +1,6 @@
 ﻿# Customized
+*.jpg
+*.png
 tmp_*
 datasets/
 fid-*

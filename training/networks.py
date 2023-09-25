@@ -788,7 +788,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
         self.output_size = output_size
 
     def forward(self, d=None):
-        d = d if isinstance(d, dict) else {}
+        d = d if isinstance(d, dict) else {"batch_size": 1 if d is None else len(d)}
         if "target" in d:
             batch_size = len(d["target"])
         else:

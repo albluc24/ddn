@@ -487,7 +487,8 @@ if __name__ == "__main__":
         )
         from sddn import DiscreteDistributionOutput
 
-        DiscreteDistributionOutput.inits[-1].sdd.plot_dist()
+        sdd = DiscreteDistributionOutput.inits[-1].sdd
+        sdd.plot_dist()
     else:
         main()
 # ----------------------------------------------------------------------------

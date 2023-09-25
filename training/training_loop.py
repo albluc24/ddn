@@ -222,7 +222,8 @@ def training_loop(
         fields = []
         fields += [f"tick {training_stats.report0('Progress/tick', cur_tick):<5d}"]
         fields += [
-            f"kimg {training_stats.report0('Progress/kimg', cur_nimg / 1e3):<9.1f}"
+            f"kimg {training_stats.report0('Progress/kimg', cur_nimg / 1e3):.1f}"
+            + f"/{total_kimg}({round(cur_nimg / 1e3/total_kimg*100, 1)}%)\t"
         ]
         fields += [
             f"time {dnnlib.util.format_time(training_stats.report0('Timing/total_sec', tick_end_time - start_time)):<12s}"
