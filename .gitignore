@@ -2,6 +2,8 @@
 tmp_*
 datasets/
 fid-*
+exps/
+*.pkl
 
 # ignore
 .vscode

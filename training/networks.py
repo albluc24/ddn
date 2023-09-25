@@ -825,6 +825,7 @@ def get_k(leveli, predict_c=3):
     k = min(max(16, k), 1024)
     if predict_c == 3:
         k = k // 2
+    # return 3
     return k
 
 
