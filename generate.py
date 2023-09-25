@@ -33,9 +33,10 @@ def ddn_sampler(
     *args,
     **kwargs,
 ):
-    d = net({}, None, class_labels)
-    boxx.cf.debug and boxx.g()
-    show(d["predict"], frombgr)
+    d = net({"batch_size": len(latents)}, None, class_labels)
+    if boxx.cf.debug:
+        boxx.g()
+        show(d["predict"], frombgr)
     return d["predict"]
 
 
@@ -345,14 +346,14 @@ def parse_int_list(s):
     help="Where to save the output images",
     metavar="DIR",
     type=str,
-    required=True,
+    # required=True,
 )
 @click.option(
     "--seeds",
     help="Random seeds (e.g. 1,2,5-10)",
     metavar="LIST",
     type=parse_int_list,
-    default="0-63",
+    default="0-99",
     show_default=True,
 )
 @click.option(
@@ -490,6 +491,9 @@ def main(
     torchrun --standalone --nproc_per_node=2 generate.py --outdir=out --seeds=0-999 --batch=64 \\
         --network=https://nvlabs-fi-cdn.nvidia.com/edm/pretrained/edm-cifar10-32x32-cond-vp.pkl
     """
+    if outdir is None:
+        outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
+        os.makedirs(outdir, exist_ok=True)
     dist.init()
     num_batches = (
         (len(seeds) - 1) // (max_batch_size * dist.get_world_size()) + 1
@@ -571,8 +575,27 @@ def main(
                 PIL.Image.fromarray(image_np, "RGB").save(image_path)
 
     # Done.
+
     torch.distributed.barrier()
+    if dist.get_rank() == 0:
+        # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'-vis.png', np.concatenate(np.concatenate(arrs,2), 0))"
+        vis = npa(
+            [imread(pa) for pa in glob(outdir + "/**/*.??g", recursive=True)[:100]]
+        )
+        vis_side = int(len(vis) ** 0.5)
+        vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
+        visp = (
+            network_pkl.replace(".pkl", "-vis.png")
+            if outdir.endswith("/generate")
+            else os.path.abspath(outdir) + "-vis.png"
+        )
+        boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
+        print("Save vis to:", visp)
     dist.print0("Done.")
+    sdd = net.model.block_32x32_1.ddo.sdd
+    if boxx.cf.debug:
+        sdd.plot_dist()
+    boxx.mg()
 
 
 # ----------------------------------------------------------------------------
@@ -582,6 +605,7 @@ if __name__ == "__main__":
     import boxx
     from boxx.ylth import *
 
+    torch.distributed.GroupMember.WORLD = None
     sys.path.append(os.path.abspath("."))
     args, argkv = boxx.getArgvDic()
     cudan = torch.cuda.device_count()
@@ -596,22 +620,21 @@ if __name__ == "__main__":
         import importlib
 
         # importlib.reload(torch.distributed)
-        torch.distributed.GroupMember.WORLD = None
         boxx.cf.debug = True
         main(
             [
-                "--seeds=0-4",
+                "--seeds=0-8",
                 "--network=cifar10-ddn.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
-                "--batch",
-                "1",
+                "--batch=2",
             ]
         )
         from sddn import DiscreteDistributionOutput
 
-        DiscreteDistributionOutput.inits[-1].sdd.plot_dist()
+        # DiscreteDistributionOutput.inits[-1].sdd.plot_dist()
     else:
         main()
+
 
 # ----------------------------------------------------------------------------
