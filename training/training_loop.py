@@ -246,7 +246,9 @@ def training_loop(
             f"reserved {training_stats.report0('Resources/peak_gpu_mem_reserved_gb', torch.cuda.max_memory_reserved(device) / 2**30):<6.2f}"
         ]
         torch.cuda.reset_peak_memory_stats()
-        dist.print0(" ".join(fields))
+        dist.print0(
+            boxx.cf.desc + ": " + " ".join(fields) + f" loss {round(loss_.tolist(),3)}"
+        )
 
         # Check for abort.
         if (not done) and dist.should_stop():

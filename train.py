@@ -393,6 +393,7 @@ def main(**kwargs):
     desc = f"{dataset_name:s}-{cond_str:s}-{opts.arch:s}-{opts.precond:s}-gpus{dist.get_world_size():d}-batch{c.batch_size:d}-{dtype_str:s}"
     if opts.desc is not None:
         desc += f"-{opts.desc}"
+    boxx.cf.desc = opts.desc or "default-task"
 
     # Pick output directory.
     if dist.get_rank() != 0:

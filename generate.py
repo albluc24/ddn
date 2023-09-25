@@ -602,6 +602,7 @@ if __name__ == "__main__":
             [
                 "--seeds=0-4",
                 "--network=cifar10-ddn.pkl",
+                # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
                 "--batch",
                 "1",
