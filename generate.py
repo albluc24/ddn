@@ -34,8 +34,8 @@ def ddn_sampler(
     **kwargs,
 ):
     d = net({"batch_size": len(latents)}, None, class_labels)
+    boxx.mg()
     if boxx.cf.debug:
-        boxx.g()
         show(d["predict"], frombgr)
     return d["predict"]
 
