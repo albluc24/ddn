@@ -819,13 +819,14 @@ def get_channeln(leveli):
     return min(max(4, channeln), 256)
 
 
-def get_k(leveli, predict_c=3):
+def get_outputk(leveli, predict_c=3):
     # if predict_c == 1:
     k = 4 * get_channeln(leveli)
     k = min(max(16, k), 1024)
     if predict_c == 3:
         k = k // 2
     # return 3
+    k = min(boxx.cf.kwargs.get("max_outputk", k), k)
     return k
 
 
@@ -839,9 +840,9 @@ def get_blockn(leveli):
     }
     if leveli not in leveli_to_blockn:
         leveli_to_blockn[leveli] = max(leveli_to_blockn.values())
-    if boxx.cf.debug:
-        return 1
-    return leveli_to_blockn[leveli]
+    blockn = leveli_to_blockn[leveli]
+    blockn = min(boxx.cf.kwargs.get("max_blockn", blockn), blockn)
+    return blockn
 
 
 @persistence.persistent_class
@@ -912,7 +913,7 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
             size = 2**leveli
             channeln = get_channeln(leveli)
             last_channeln = get_channeln(leveli - 1)
-            k = get_k(leveli)
+            k = get_outputk(leveli)
             if not leveli:  # level0 only 1 block
                 block = UNetBlockWoEmb(channeln, channeln, **block_kwargs)
                 set_block(

@@ -200,6 +200,13 @@ def copy_params_and_buffers(src_module, dst_module, require_all=False):
         assert (name in src_tensors) or (not require_all)
         if name in src_tensors:
             tensor.copy_(src_tensors[name])
+    # TODO sdd as buffer then remove
+    dst_dic = dict(dst_module.named_modules())
+    for src_submodule_name, src_submodule in src_module.named_modules():
+        if hasattr(src_submodule, "sdd"):
+            if src_submodule_name in dst_dic:
+                dst_submodule = dst_dic[src_submodule_name]
+                setattr(dst_submodule, "sdd", getattr(src_submodule, "sdd"))
 
 
 # ----------------------------------------------------------------------------

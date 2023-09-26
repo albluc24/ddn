@@ -141,6 +141,9 @@ def training_loop(
         misc.copy_params_and_buffers(
             src_module=data["ema"], dst_module=ema, require_all=False
         )
+        # print(net.model.block_8x8_2.ddo.sdd)
+        # print(data["ema"].model.block_8x8_2.ddo.sdd)
+        # boxx.g()/0
         del data  # conserve memory
     if resume_state_dump:
         dist.print0(f'Loading training state from "{resume_state_dump}"...')

@@ -615,7 +615,9 @@ if __name__ == "__main__":
     )
     if argkv.get("debug"):
         debug = True
-    if debug:
+    if not debug:
+        main()
+    else:
         import training
         import importlib
 
@@ -630,11 +632,36 @@ if __name__ == "__main__":
                 "--batch=2",
             ]
         )
-        from sddn import DiscreteDistributionOutput
-
-        # DiscreteDistributionOutput.inits[-1].sdd.plot_dist()
-    else:
-        main()
+        #%%
+        dataset_obj = dnnlib.util.construct_class_by_name(
+            **{
+                "class_name": "training.dataset.ImageFolderDataset",
+                "path": "datasets/cifar10-32x32.zip",
+                "use_labels": False,
+                "xflip": False,
+                "cache": True,
+                "resolution": 32,
+                "max_size": 50000,
+            }
+        )
+        d = {
+            "target": tht(
+                np.concatenate([dataset_obj[i + 15][0][None] for i in range(3)])
+            )
+            .cuda()
+            .to(torch.float32)
+            / 127.5
+            - 1
+        }
+        d = net(d)
+        showd = lambda d_=d: show(
+            d_["predicts"][3:],
+            d_.get("target"),
+            d_["predict"],
+            lambda x: (x * 127.5 + 128).clip(0, 255).astype(np.uint8),
+            tprgb,
+        )
+        showd(d)
 
 
 # ----------------------------------------------------------------------------

@@ -113,6 +113,30 @@ def parse_int_list(s):
     type=parse_int_list,
 )
 @click.option(
+    "--max-blockn",
+    help="max block num per resolution",
+    metavar="INT",
+    type=click.IntRange(min=1),
+    default=8,
+    show_default=True,
+)
+@click.option(
+    "--max-outputk",
+    help="max output k of DDN",
+    metavar="INT",
+    type=click.IntRange(min=3),
+    default=1024,
+    show_default=True,
+)
+@click.option(
+    "--debug",
+    help="debug mode",
+    metavar="BOOL",
+    type=bool,
+    default=False,
+    show_default=True,
+)
+@click.option(
     "--lr",
     help="Learning rate",
     metavar="FLOAT",
@@ -248,6 +272,8 @@ def main(**kwargs):
     torchrun --standalone --nproc_per_node=8 train.py --outdir=training-runs \\
         --data=datasets/cifar10-32x32.zip --cond=1 --arch=ddpmpp
     """
+    boxx.cf.kwargs = kwargs
+
     opts = dnnlib.EasyDict(kwargs)
     torch.multiprocessing.set_start_method("spawn", force=True)
     dist.init()
@@ -465,8 +491,8 @@ if __name__ == "__main__":
         not cudan
         or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
     )
-    if argkv.get("debug"):
-        debug = True
+    if "debug" in argkv:
+        debug = argkv["debug"]
     if debug:
         import training
         import importlib
@@ -480,15 +506,20 @@ if __name__ == "__main__":
                 "--outdir=/tmp/edm-code",
                 "--duration=0.000001",
                 "--batch=6",
-                "--batch-gpu=2",
+                "--batch-gpu=3",
                 "--cbase=4",
+                "--max-blockn=2",
+                "--max-outputk=64",
                 # "--arch=ddpmpp"
+                # "--transfer=cifar10-ddn.pkl",
             ]
         )
         from sddn import DiscreteDistributionOutput
 
         sdd = DiscreteDistributionOutput.inits[-1].sdd
         sdd.plot_dist()
+        print(net.module.model.table())
     else:
+        # %run train.py --batch-gpu=3 --duration=0.0001 --batch=6 --outdir=/tmp/d --data=datasets/cifar10-32x32.zip --debug 0
         main()
 # ----------------------------------------------------------------------------
