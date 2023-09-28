@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 if __name__ == "__main__":
+    from boxx.ylth import *
     import sys
 
     sys.path.append("..")
@@ -771,6 +772,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
         self.predict_c = predict_c
         self.leak_choice = leak_choice
 
+        # TODO replace choice and leak conv to short plus
         self.choice_conv1x1 = torch.nn.Conv2d(predict_c, self.in_c, (1, 1), bias=False)
         if leak_choice:
             self.leak_conv1x1 = torch.nn.Conv2d(
@@ -814,34 +816,34 @@ class DiscreteDistributionBlock(torch.nn.Module):
         return d
 
 
-def get_channeln(leveli):
-    channeln = 2 ** (13 - leveli)
+def get_channeln(scalei):
+    channeln = 2 ** (13 - scalei)
     return min(max(4, channeln), 256)
 
 
-def get_outputk(leveli, predict_c=3):
+def get_outputk(scalei, predict_c=3):
     # if predict_c == 1:
-    k = 4 * get_channeln(leveli)
+    k = 4 * get_channeln(scalei)
     k = min(max(16, k), 1024)
     if predict_c == 3:
         k = k // 2
     # return 3
-    k = min(boxx.cf.kwargs.get("max_outputk", k), k)
+    k = min(boxx.cf.get("kwargs", {}).get("max_outputk", k), k)
     return k
 
 
-def get_blockn(leveli):
-    leveli_to_blockn = {
+def get_blockn(scalei):
+    scalei_to_blockn = {
         0: 1,
         1: 2,
         2: 4,
         3: 8,
         4: 8,
     }
-    if leveli not in leveli_to_blockn:
-        leveli_to_blockn[leveli] = max(leveli_to_blockn.values())
-    blockn = leveli_to_blockn[leveli]
-    blockn = min(boxx.cf.kwargs.get("max_blockn", blockn), blockn)
+    if scalei not in scalei_to_blockn:
+        scalei_to_blockn[scalei] = max(scalei_to_blockn.values())
+    blockn = scalei_to_blockn[scalei]
+    blockn = min(boxx.cf.get("kwargs", {}).get("max_blockn", blockn), blockn)
     return blockn
 
 
@@ -900,21 +902,26 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
             init_attn=init_attn,
         )
 
+        self.scalen = int(np.log2(img_resolution))
+
         self.module_names = []
+        self.scale_to_module_names = {}  # dict for if scale is float, like 1.5
+        self.scale_to_repeatn = {}
 
         def set_block(name, block):
             self.module_names.append(name)
             setattr(self, name, block)
+            self.scale_to_module_names[scalei] = self.scale_to_module_names.get(
+                scalei, []
+            ) + [name]
             return block
 
-        self.leveln = int(np.log2(img_resolution))
-
-        for leveli in range(self.leveln + 1):
-            size = 2**leveli
-            channeln = get_channeln(leveli)
-            last_channeln = get_channeln(leveli - 1)
-            k = get_outputk(leveli)
-            if not leveli:  # level0 only 1 block
+        for scalei in range(self.scalen + 1):
+            size = 2**scalei
+            channeln = get_channeln(scalei)
+            last_channeln = get_channeln(scalei - 1)
+            k = get_outputk(scalei)
+            if not scalei:  # scale0 only 1 block
                 block = UNetBlockWoEmb(channeln, channeln, **block_kwargs)
                 set_block(
                     "block_1x1_0", DiscreteDistributionBlock(block, k, output_size=size)
@@ -932,7 +939,7 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
                 DiscreteDistributionBlock(block_up, k, output_size=size),
             )
             cin = last_channeln
-            for block_count in range(1, get_blockn(leveli)):
+            for block_count in range(1, get_blockn(scalei)):
                 block = UNetBlockWoEmb(cin, channeln, **block_kwargs)
                 set_block(
                     f"block_{size}x{size}_{block_count}",
@@ -941,9 +948,16 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
                 cin = channeln
 
     def forward(self, d=None, _sigma=None, labels=None):
-        for name in self.module_names:
-            m = getattr(self, name)
-            d = m(d)
+        for scalei in range(self.scalen + 1):
+            for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
+                for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
+                    if (
+                        not (repeati) and module_idx == 0
+                    ):  # skip first moule (up sample) when repeat
+                        continue
+                    module = getattr(self, name)
+                    d = module(d)
+                    # boxx.g()/0
         return d
 
     def table(
@@ -980,9 +994,6 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
 
 
 if __name__ == "__main__":
-    from boxx import *
-
-    # from boxx.ylth import *
     img_resolution, in_channels, out_channels = 32, 3, 3
     target = torch.zeros((2, 3, 32, 32)).cuda()
     torch.autograd.set_detect_anomaly(True)
