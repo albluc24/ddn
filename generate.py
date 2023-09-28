@@ -577,7 +577,7 @@ def main(
     # Done.
 
     torch.distributed.barrier()
-    if dist.get_rank() == 0:
+    if dist.get_rank() == 0 and len(seeds)>=4:
         # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'-vis.png', np.concatenate(np.concatenate(arrs,2), 0))"
         vis = npa(
             [imread(pa) for pa in glob(outdir + "/**/*.??g", recursive=True)[:100]]
