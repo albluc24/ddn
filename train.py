@@ -129,6 +129,14 @@ def parse_int_list(s):
     show_default=True,
 )
 @click.option(
+    "--repeatn",
+    help="repeat of each not up block",
+    metavar="INT",
+    type=click.IntRange(min=1),
+    default=1,TODO:
+    show_default=True,
+)
+@click.option(
     "--debug",
     help="debug mode",
     metavar="BOOL",
