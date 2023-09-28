@@ -96,6 +96,8 @@ def training_loop(
     net = dnnlib.util.construct_class_by_name(**network_kwargs, **interface_kwargs).to(
         device
     )  # subclass of torch.nn.Module
+
+    # boxx.g()/0
     if dist.get_rank() == 0:
         with torch.no_grad():
             images = torch.zeros(

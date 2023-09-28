@@ -951,13 +951,11 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
                 for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
-                    if (
-                        not (repeati) and module_idx == 0
-                    ):  # skip first moule (up sample) when repeat
+                    if module_idx == 0 and repeati != 0:
+                        # skip first moule (up sample) when repeat
                         continue
                     module = getattr(self, name)
                     d = module(d)
-                    # boxx.g()/0
         return d
 
     def table(
