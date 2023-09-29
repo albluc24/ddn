@@ -908,6 +908,17 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         self.scale_to_module_names = {}  # dict for if scale is float, like 1.5
         self.scale_to_repeatn = {}
 
+        # if
+        """
+        手工设计网络, 原则:
+            - 小 scale:
+                - 背景: 小 scale 即低频信息, 低频信息一定是可以无损压缩的!,  所以需要大算力和表征空间的限制来让网络压缩低频信息.
+                - 减少 k, 增大 repeat 和 blockn * channeln, 因为 k 要多复用, 避免学不会和过拟合, 低维能有效分岔, 需要更多算力
+            - 大 scale
+                - 高频信息难以无损压缩, 但可以通过更多的表示空间/采样 + 更多的采样来逼近高频信号, 以减缓平均模糊现象
+                - 巨大的 k, 不要算力. 考更多 k 带来空间和随机性, 符合高频信号的随机性, 和低算力需求特性
+            """
+
         def set_block(name, block):
             self.module_names.append(name)
             setattr(self, name, block)

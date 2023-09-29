@@ -210,7 +210,7 @@ def training_loop(
         # Try splti all
         from sddn import DiscreteDistributionOutput
 
-        DiscreteDistributionOutput.try_split_all()
+        DiscreteDistributionOutput.try_split_all(optimizer)
 
         # Perform maintenance tasks once per tick.
         cur_nimg += batch_size
