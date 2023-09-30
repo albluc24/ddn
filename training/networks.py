@@ -748,6 +748,7 @@ class UNetBlockWoEmb(torch.nn.Module):
 @persistence.persistent_class
 class DiscreteDistributionBlock(torch.nn.Module):
     short_plus = True
+
     def __init__(
         self,
         block,
@@ -897,7 +898,7 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         assert embedding_type in ["fourier", "positional"]
         assert encoder_type in ["standard", "skip", "residual"]
         assert decoder_type in ["standard", "skip"]
-        
+
         # DiscreteDistributionOutput.learn_residual = False
         # DiscreteDistributionBlock.short_plus = False
 
@@ -928,16 +929,33 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         self.scale_to_module_names = {}  # dict for if scale is float, like 1.5
         self.scale_to_repeatn = {}
 
-        # if
-        """
-        手工设计网络, 原则:
-            - 小 scale:
-                - 背景: 小 scale 即低频信息, 低频信息一定是可以无损压缩的!,  所以需要大算力和表征空间的限制来让网络压缩低频信息. 但表征空间需要大于该尺度的实际信息量!
-                - 减少 k, 增大 repeat 和 blockn * channeln, 因为 k 要多复用, 避免学不会和过拟合, 低维能有效分岔, 需要更多算力
-            - 大 scale
-                - 高频信息难以无损压缩, 但可以通过更多的表示空间/采样 + 更多的采样来逼近高频信号, 以减缓平均模糊现象
-                - 巨大的 k, 不要算力. 考更多 k 带来空间和随机性, 符合高频信号的随机性, 和低算力需求特性
+        if "hands design":
             """
+            手工设计网络, 原则:
+                - 小 scale:
+                    - 背景: 小 scale 即低频信息, 低频信息一定是可以无损压缩的!,  所以需要大算力和表征空间的限制来让网络压缩低频信息. 但表征空间需要大于该尺度的实际信息量!
+                    - 减少 k, 增大 repeat 和 blockn * channeln, 因为 k 要多复用, 避免学不会和过拟合, 低维能有效分岔, 需要更多算力
+                - 大 scale
+                    - 高频信息难以无损压缩, 但可以通过更多的表示空间/采样 + 更多的采样来逼近高频信号, 以减缓平均模糊现象
+                    - 巨大的 k, 不要算力. 考更多 k 带来空间和随机性, 符合高频信号的随机性, 和低算力需求特性
+            """
+            # scale_to_channeln = [256, 256, 256, 256, 256, 256, 128]
+            # scale_to_blockn = [1, 2, 4, 8, 8, 8, 8]
+            # scale_to_repeatn = [1] * 6
+            # scale_to_outputk = [512, 512, 512, 512, 512, 512, 256]
+
+            # 1, 2, 4, 8, 16, 32, 64
+            scale_to_channeln = [256, 256, 256, 256, 128, 64, 32]
+            scale_to_blockn = [1, 8, 16, 16, 8, 4, 3]
+            scale_to_repeatn = [3, 10, 10, 10, 10, 5, 2]
+            scale_to_outputk = [64, 16, 16, 16, 64, 512, 512]
+            if boxx.cf.debug:
+                scale_to_channeln = [4, 8] * 7
+            get_channeln = lambda scalei: scale_to_channeln[scalei]
+            get_blockn = lambda scalei: scale_to_blockn[scalei]
+            get_outputk = lambda scalei: scale_to_outputk[scalei]
+            get_repeatn = lambda scalei: scale_to_repeatn[scalei]
+            self.scale_to_repeatn = dict(enumerate(scale_to_repeatn))
 
         def set_block(name, block):
             self.module_names.append(name)
@@ -952,24 +970,25 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
             channeln = get_channeln(scalei)
             last_channeln = get_channeln(scalei - 1)
             k = get_outputk(scalei)
-            if not scalei:  # scale0 only 1 block
+            if scalei:
+                # up block
+                block_up = UNetBlockWoEmb(
+                    in_channels=last_channeln,
+                    out_channels=channeln,
+                    up=True,
+                    **block_kwargs,
+                )
+                set_block(
+                    f"block_{size}x{size}_0_up",
+                    DiscreteDistributionBlock(block_up, k, output_size=size),
+                )
+            else:  # scale0 only 1 block
                 block = UNetBlockWoEmb(channeln, channeln, **block_kwargs)
                 set_block(
                     "block_1x1_0", DiscreteDistributionBlock(block, k, output_size=size)
                 )
                 continue
-            # up block
-            block_up = UNetBlockWoEmb(
-                in_channels=last_channeln,
-                out_channels=last_channeln,
-                up=True,
-                **block_kwargs,
-            )
-            set_block(
-                f"block_{size}x{size}_0_up",
-                DiscreteDistributionBlock(block_up, k, output_size=size),
-            )
-            cin = last_channeln
+            cin = channeln
             for block_count in range(1, get_blockn(scalei)):
                 block = UNetBlockWoEmb(cin, channeln, **block_kwargs)
                 set_block(
@@ -1037,7 +1056,8 @@ if __name__ == "__main__":
         net = net.train()
         out = misc.print_module_summary(net, params, max_nesting=1)
     if "DDN":
-        img_resolution = 4
+        img_resolution = 32
+        boxx.cf.debug = True
         net = PHDDN(img_resolution, in_channels, out_channels).cuda()
         params = dict(target=target)
         # d = net(params)
