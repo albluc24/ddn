@@ -297,6 +297,15 @@ def training_loop(
                 dict(net=net, optimizer_state=optimizer.state_dict()),
                 os.path.join(run_dir, f"training-state-{cur_nimg//1000:06d}.pt"),
             )
+        if (
+            boxx.timegap(3600, "save_training-state")
+            and cur_tick != 0
+            and dist.get_rank() == 0
+        ):
+            torch.save(
+                dict(net=net, optimizer_state=optimizer.state_dict()),
+                os.path.join(run_dir, f"training-state-last.pt"),
+            )
 
         # Update logs.
         training_stats.default_collector.update()
