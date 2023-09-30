@@ -195,6 +195,10 @@ def training_loop(
                     param.grad, nan=0, posinf=1e5, neginf=-1e5, out=param.grad
                 )
         optimizer.step()
+        # Try splti all
+        from sddn import DiscreteDistributionOutput
+
+        DiscreteDistributionOutput.try_split_all(optimizer)
 
         # Update EMA.
         if ema_halflife_kimg:
@@ -206,11 +210,6 @@ def training_loop(
                 p_ema.copy_(p_net.detach().lerp(p_ema, ema_beta))
         else:
             ema = ema.to("cpu")
-
-        # Try splti all
-        from sddn import DiscreteDistributionOutput
-
-        DiscreteDistributionOutput.try_split_all(optimizer)
 
         # Perform maintenance tasks once per tick.
         cur_nimg += batch_size

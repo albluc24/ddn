@@ -747,6 +747,7 @@ class UNetBlockWoEmb(torch.nn.Module):
 
 @persistence.persistent_class
 class DiscreteDistributionBlock(torch.nn.Module):
+    short_plus = True
     def __init__(
         self,
         block,
@@ -773,11 +774,14 @@ class DiscreteDistributionBlock(torch.nn.Module):
         self.leak_choice = leak_choice
 
         # TODO replace choice and leak conv to short plus
-        self.choice_conv1x1 = torch.nn.Conv2d(predict_c, self.in_c, (1, 1), bias=False)
-        if leak_choice:
-            self.leak_conv1x1 = torch.nn.Conv2d(
+        if not self.short_plus:
+            self.choice_conv1x1 = torch.nn.Conv2d(
                 predict_c, self.in_c, (1, 1), bias=False
             )
+            if leak_choice:
+                self.leak_conv1x1 = torch.nn.Conv2d(
+                    predict_c, self.in_c, (1, 1), bias=False
+                )
         self.ddo = DiscreteDistributionOutput(
             k,
             last_c=self.out_c,
@@ -808,9 +812,22 @@ class DiscreteDistributionBlock(torch.nn.Module):
                 * batch_size
             ).cuda()
             feat_leak = predict
-        inp = inp + self.choice_conv1x1(predict)
-        if self.leak_choice:
-            inp = inp + self.leak_conv1x1(feat_leak)
+        b, c, h, w = inp.shape
+        if not hasattr(self, "choice_conv1x1"):
+            # boxx.g()/0
+            # inp[:, :self.predict_c].add_(predict)
+            inp = inp + torch.nn.functional.pad(
+                predict, (0, 0, 0, 0, 0, c - self.predict_c)
+            )
+            if self.leak_choice:
+                # inp[:, -self.predict_c:].add_(feat_leak)
+                inp = inp + torch.nn.functional.pad(
+                    feat_leak, (0, 0, 0, 0, c - self.predict_c, 0)
+                )
+        else:
+            inp = inp + self.choice_conv1x1(predict)
+            if self.leak_choice:
+                inp = inp + self.leak_conv1x1(feat_leak)
         d["feat_last"] = self.block(inp)
         d = self.ddo(d)
         return d
@@ -880,6 +897,9 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         assert embedding_type in ["fourier", "positional"]
         assert encoder_type in ["standard", "skip", "residual"]
         assert decoder_type in ["standard", "skip"]
+        
+        # DiscreteDistributionOutput.learn_residual = False
+        # DiscreteDistributionBlock.short_plus = False
 
         super().__init__()
         self.label_dropout = label_dropout
@@ -912,7 +932,7 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         """
         手工设计网络, 原则:
             - 小 scale:
-                - 背景: 小 scale 即低频信息, 低频信息一定是可以无损压缩的!,  所以需要大算力和表征空间的限制来让网络压缩低频信息.
+                - 背景: 小 scale 即低频信息, 低频信息一定是可以无损压缩的!,  所以需要大算力和表征空间的限制来让网络压缩低频信息. 但表征空间需要大于该尺度的实际信息量!
                 - 减少 k, 增大 repeat 和 blockn * channeln, 因为 k 要多复用, 避免学不会和过拟合, 低维能有效分岔, 需要更多算力
             - 大 scale
                 - 高频信息难以无损压缩, 但可以通过更多的表示空间/采样 + 更多的采样来逼近高频信号, 以减缓平均模糊现象
