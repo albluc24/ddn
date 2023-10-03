@@ -263,6 +263,7 @@ def training_loop(
 
         # Save network snapshot.
         if (snapshot_ticks is not None) and (done or cur_tick % snapshot_ticks == 0):
+            torch.distributed.barrier()
             if not ema_halflife_kimg:
                 # TODO 适配和打开 EMA 让 split 支持 EMA
                 ema = copy.deepcopy(net).eval().requires_grad_(False)

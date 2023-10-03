@@ -746,6 +746,34 @@ class UNetBlockWoEmb(torch.nn.Module):
 
 
 @persistence.persistent_class
+class WarpDictIO(torch.nn.Module):
+    def __init__(self, block):
+        super().__init__()
+        self.warp_dict = block
+
+    def forward(self, d):
+        d["feat_last"] = self.warp_dict.forward(d["feat_last"])
+        return d
+
+
+@persistence.persistent_class
+class UpBlock(UNetBlockWoEmb):
+    def forward(self, d):
+        d["feat_last"] = super().forward(d["feat_last"])
+        b, c, h, w = d["feat_last"].shape
+        if "predict" in d:
+            d["predict"] = torch.nn.functional.interpolate(
+                d["predict"], (h, w), mode="bilinear"
+            )
+        if "feat_leak" in d:
+            d["feat_leak"] = torch.nn.functional.interpolate(
+                d["feat_leak"], (h, w), mode="bilinear"
+            )
+
+        return d
+
+
+@persistence.persistent_class
 class DiscreteDistributionBlock(torch.nn.Module):
     short_plus = True
 
@@ -763,13 +791,20 @@ class DiscreteDistributionBlock(torch.nn.Module):
     ):
         super().__init__()
         self.block = block
+        block_first, block_last = (
+            (block[0], block[-1])
+            if isinstance(block, torch.nn.Sequential)
+            else (block, block)
+        )
         self.in_c = (
-            in_c or getattr(block, "in_c", None) or getattr(block, "in_channels", None)
+            in_c
+            or getattr(block_first, "in_c", None)
+            or getattr(block_first, "in_channels", None)
         )
         self.out_c = (
             out_c
-            or getattr(block, "out_c", None)
-            or getattr(block, "out_channels", None)
+            or getattr(block_last, "out_c", None)
+            or getattr(block_last, "out_channels", None)
         )
         self.predict_c = predict_c
         self.leak_choice = leak_choice
@@ -866,7 +901,9 @@ def get_blockn(scalei):
 
 
 @persistence.persistent_class
-class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
+class PHDDNDenseOutput(
+    torch.nn.Module
+):  # PyramidHierarchicalDiscreteDistributionNetwork
     def __init__(
         self,
         img_resolution=32,  # Image resolution at input/output.
@@ -1001,6 +1038,7 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
                 for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
+                    print(name)
                     if module_idx == 0 and repeati != 0:
                         # skip first moule (up sample) when repeat
                         continue
@@ -1017,16 +1055,22 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
         mds = []
         for name in self.module_names:
             m = getattr(self, name)
-            k = m.ddo.k
-            c = (m.in_c, m.out_c)
-            s = m.output_size
-            times *= k
+            k = m.ddo.k if hasattr(m, "ddo") else 1
+            c = (m.in_c, m.out_c) if hasattr(m, "in_c") else (None, None)
+            size = m.output_size if hasattr(m, "output_size") else size
+            repeat = (
+                self.scale_to_repeatn.get(int(np.log2(size)), 1)
+                if hasattr(m, "output_size")
+                else 1
+            )
+            times *= k * repeat
             log2 = math.log2(times)
             row = dict(
                 name=name,
-                s=s,
+                size=size,
                 c=c,
                 k=k,
+                repeat=repeat,
                 log2=log2,
                 log10=math.log10(times),
             )
@@ -1039,6 +1083,149 @@ class PHDDN(torch.nn.Module):  # PyramidHierarchicalDiscreteDistributionNetwork
             m = getattr(self, name)
             sdds.append(m.ddo.sdd)
         return sdds
+
+
+@persistence.persistent_class
+class PHDDN(PHDDNDenseOutput):  # PyramidHierarchicalDiscreteDistributionNetwork
+    def __init__(
+        self,
+        img_resolution=32,  # Image resolution at input/output.
+        in_channels=3,  # Number of color channels at input.
+        out_channels=3,  # Number of color channels at output.
+        label_dim=0,  # Number of class labels, 0 = unconditional.
+        augment_dim=0,  # Augmentation label dimensionality, 0 = no augmentation.
+        model_channels=128,  # Base multiplier for the number of channels.
+        channel_mult=[
+            1,
+            2,
+            2,
+            2,
+        ],  # Per-resolution multipliers for the number of channels.
+        channel_mult_emb=4,  # Multiplier for the dimensionality of the embedding vector.
+        num_blocks=4,  # Number of residual blocks per resolution.
+        attn_resolutions=[16],  # List of resolutions with self-attention.
+        dropout=0.10,  # Dropout probability of intermediate activations.
+        label_dropout=0,  # Dropout probability of class labels for classifier-free guidance.
+        embedding_type="positional",  # Timestep embedding type: 'positional' for DDPM++, 'fourier' for NCSN++.
+        channel_mult_noise=1,  # Timestep embedding size: 1 for DDPM++, 2 for NCSN++.
+        encoder_type="standard",  # Encoder architecture: 'standard' for DDPM++, 'residual' for NCSN++.
+        decoder_type="standard",  # Decoder architecture: 'standard' for both DDPM++ and NCSN++.
+        resample_filter=[
+            1,
+            1,
+        ],  # Resampling filter: [1,1] for DDPM++, [1,3,3,1] for NCSN++.
+    ):
+        assert embedding_type in ["fourier", "positional"]
+        assert encoder_type in ["standard", "skip", "residual"]
+        assert decoder_type in ["standard", "skip"]
+
+        # DiscreteDistributionOutput.learn_residual = False
+        # DiscreteDistributionBlock.short_plus = False
+
+        torch.nn.Module.__init__(self)
+        self.label_dropout = label_dropout
+        emb_channels = model_channels * channel_mult_emb
+        noise_channels = model_channels * channel_mult_noise
+        init = dict(init_mode="xavier_uniform")
+        init_zero = dict(init_mode="xavier_uniform", init_weight=1e-5)
+        init_attn = dict(init_mode="xavier_uniform", init_weight=np.sqrt(0.2))
+        block_kwargs = dict(
+            emb_channels=emb_channels,
+            num_heads=1,
+            dropout=dropout,
+            skip_scale=np.sqrt(0.5),
+            eps=1e-6,
+            resample_filter=resample_filter,
+            resample_proj=True,
+            adaptive_scale=False,
+            init=init,
+            init_zero=init_zero,
+            init_attn=init_attn,
+        )
+
+        self.scalen = int(np.log2(img_resolution))
+
+        self.module_names = []
+        self.scale_to_module_names = {}  # dict for if scale is float, like 1.5
+        self.scale_to_repeatn = {}
+
+        if "hands design":
+            """
+            手工设计网络, 原则:
+                - 小 scale:
+                    - 背景: 小 scale 即低频信息, 低频信息一定是可以无损压缩的!,  所以需要大算力和表征空间的限制来让网络压缩低频信息. 但表征空间需要大于该尺度的实际信息量!
+                    - 减少 k, 增大 repeat 和 blockn * channeln, 因为 k 要多复用, 避免学不会和过拟合, 低维能有效分岔, 需要更多算力
+                - 大 scale
+                    - 高频信息难以无损压缩, 但可以通过更多的表示空间/采样 + 更多的采样来逼近高频信号, 以减缓平均模糊现象
+                    - 巨大的 k, 不要算力. 考更多 k 带来空间和随机性, 符合高频信号的随机性, 和低算力需求特性
+            """
+            # scale_to_channeln = [256, 256, 256, 256, 256, 256, 128]
+            # scale_to_blockn = [1, 2, 4, 8, 8, 8, 8]
+            # scale_to_repeatn = [1] * 6
+            # scale_to_outputk = [512, 512, 512, 512, 512, 512, 256]
+
+            # 1, 2, 4, 8, 16, 32, 64
+            scale_to_channeln = [256, 256, 256, 256, 128, 64, 32]
+            scale_to_blockn = [4, 8, 16, 16, 8, 5, 4]
+            scale_to_repeatn = [2, 10, 10, 10, 10, 6, 3]
+            scale_to_outputk = [64, 32, 32, 32, 64, 512, 512]
+            if boxx.cf.debug:
+                scale_to_channeln = [4, 8] * 7
+            get_channeln = lambda scalei: scale_to_channeln[scalei]
+            get_blockn = lambda scalei: scale_to_blockn[scalei]
+            get_outputk = lambda scalei: scale_to_outputk[scalei]
+            get_repeatn = lambda scalei: scale_to_repeatn[scalei]
+            self.scale_to_repeatn = dict(enumerate(scale_to_repeatn))
+
+        def set_block(name, block):
+            self.module_names.append(name)
+            setattr(self, name, block)
+            self.scale_to_module_names[scalei] = self.scale_to_module_names.get(
+                scalei, []
+            ) + [name]
+            return block
+
+        for scalei in range(self.scalen + 1):
+            size = 2**scalei
+            channeln = get_channeln(scalei)
+            last_channeln = get_channeln(scalei - 1)
+            k = get_outputk(scalei)
+            if scalei:
+                # up block
+                block_up = UpBlock(
+                    in_channels=last_channeln,
+                    out_channels=channeln,
+                    up=True,
+                    **block_kwargs,
+                )
+                set_block(
+                    f"block_{size}x{size}_up",
+                    (block_up),
+                )
+            else:  # scale0 no up
+                pass
+            blocks = [
+                UNetBlockWoEmb(channeln, channeln, **block_kwargs)
+                for block_count in range(0, get_blockn(scalei))
+            ]
+            blocks = torch.nn.Sequential(*blocks)
+            dd_blocks = DiscreteDistributionBlock(blocks, k, output_size=size)
+            set_block(
+                f"blocks_{size}x{size}",
+                dd_blocks,
+            )
+
+    def forward(self, d=None, _sigma=None, labels=None):
+        for scalei in range(self.scalen + 1):
+            for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
+                for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
+                    if name.endswith("_up") and repeati != 0:
+                        # skip first moule (up sample) when repeat
+                        continue
+                    # print(name)
+                    module = getattr(self, name)
+                    d = module(d)
+        return d
 
 
 if __name__ == "__main__":
