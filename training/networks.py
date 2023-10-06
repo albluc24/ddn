@@ -936,9 +936,6 @@ class PHDDNDenseOutput(
         assert encoder_type in ["standard", "skip", "residual"]
         assert decoder_type in ["standard", "skip"]
 
-        # DiscreteDistributionOutput.learn_residual = False
-        # DiscreteDistributionBlock.short_plus = False
-
         super().__init__()
         self.label_dropout = label_dropout
         emb_channels = model_channels * channel_mult_emb
@@ -966,6 +963,9 @@ class PHDDNDenseOutput(
         self.scale_to_module_names = {}  # dict for if scale is float, like 1.5
         self.scale_to_repeatn = {}
 
+        DiscreteDistributionOutput.learn_residual = False
+        # DiscreteDistributionBlock.short_plus = False
+
         if "hands design":
             """
             手工设计网络, 原则:
@@ -982,17 +982,17 @@ class PHDDNDenseOutput(
             # scale_to_outputk = [512, 512, 512, 512, 512, 512, 256]
 
             # 1, 2, 4, 8, 16, 32, 64
-            scale_to_channeln = [256, 256, 256, 256, 128, 64, 32]
-            scale_to_blockn = [1, 8, 16, 16, 8, 4, 3]
-            scale_to_repeatn = [3, 10, 10, 10, 10, 5, 2]
-            scale_to_outputk = [64, 16, 16, 16, 64, 512, 512]
-            if boxx.cf.debug:
-                scale_to_channeln = [4, 8] * 7
-            get_channeln = lambda scalei: scale_to_channeln[scalei]
-            get_blockn = lambda scalei: scale_to_blockn[scalei]
-            get_outputk = lambda scalei: scale_to_outputk[scalei]
-            get_repeatn = lambda scalei: scale_to_repeatn[scalei]
-            self.scale_to_repeatn = dict(enumerate(scale_to_repeatn))
+            # scale_to_channeln = [256, 256, 256, 256, 128, 64, 32]
+            # scale_to_blockn = [1, 8, 16, 16, 8, 4, 3]
+            # scale_to_repeatn = [3, 10, 10, 10, 10, 5, 2]
+            # scale_to_outputk = [64, 16, 16, 16, 64, 512, 512]
+            # if boxx.cf.debug:
+            #     scale_to_channeln = [4, 8] * 7
+            # get_channeln = lambda scalei: scale_to_channeln[scalei]
+            # get_blockn = lambda scalei: scale_to_blockn[scalei]
+            # get_outputk = lambda scalei: scale_to_outputk[scalei]
+            # get_repeatn = lambda scalei: scale_to_repeatn[scalei]
+            # self.scale_to_repeatn = dict(enumerate(scale_to_repeatn))
 
         def set_block(name, block):
             self.module_names.append(name)
@@ -1038,7 +1038,7 @@ class PHDDNDenseOutput(
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
                 for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
-                    print(name)
+                    # print(name)
                     if module_idx == 0 and repeati != 0:
                         # skip first moule (up sample) when repeat
                         continue
@@ -1086,7 +1086,9 @@ class PHDDNDenseOutput(
 
 
 @persistence.persistent_class
-class PHDDN(PHDDNDenseOutput):  # PyramidHierarchicalDiscreteDistributionNetwork
+class PHDDNHandsDesign(
+    PHDDNDenseOutput
+):  # PyramidHierarchicalDiscreteDistributionNetwork
     def __init__(
         self,
         img_resolution=32,  # Image resolution at input/output.
@@ -1228,6 +1230,7 @@ class PHDDN(PHDDNDenseOutput):  # PyramidHierarchicalDiscreteDistributionNetwork
         return d
 
 
+PHDDN = PHDDNDenseOutput
 if __name__ == "__main__":
     img_resolution, in_channels, out_channels = 32, 3, 3
     target = torch.zeros((2, 3, 32, 32)).cuda()
