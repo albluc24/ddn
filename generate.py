@@ -592,8 +592,8 @@ def main(
         boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
         print("Save vis to:", visp)
     dist.print0("Done.")
-    sdd = net.model.block_32x32_1.ddo.sdd
     if boxx.cf.debug:
+        sdd = net.model.blocks_32x32_1.ddo.sdd
         sdd.plot_dist()
     boxx.mg()
 
