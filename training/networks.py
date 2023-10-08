@@ -776,6 +776,7 @@ class UpBlock(UNetBlockWoEmb):
 @persistence.persistent_class
 class DiscreteDistributionBlock(torch.nn.Module):
     short_plus = True
+    # short_plus = False
 
     def __init__(
         self,

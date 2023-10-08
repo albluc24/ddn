@@ -108,7 +108,7 @@ class DDNLoss:
             augment_pipe(images) if augment_pipe is not None else (images, None)
         )
         d = net(dict(target=y))
-        if "pixel.weight.loss":  # TODO 也许没用
+        if "pixel.weight.loss" and 0:  # TODO 也许没用
             pixeln_per_ddo = [
                 predict.shape[-1] * predict.shape[-2] for predict in d["predicts"]
             ]
