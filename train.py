@@ -530,9 +530,10 @@ if __name__ == "__main__":
                 "--cbase=4",
                 "--max-blockn=2",
                 "--max-outputk=64",
-                # "--arch=ddpmpp"
+                # "--arch=ddpmpp",
                 # "--transfer=cifar10-ddn.pkl",
                 "--learn-res=1",
+                "--fp16=1",
             ]
         )
         from sddn import DiscreteDistributionOutput

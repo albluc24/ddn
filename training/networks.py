@@ -624,7 +624,7 @@ class SongUNet(torch.nn.Module):
                 x = block(x, emb)
         return aux
 
-
+import sddn
 from sddn import DiscreteDistributionOutput
 
 
@@ -812,11 +812,11 @@ class DiscreteDistributionBlock(torch.nn.Module):
 
         # TODO replace choice and leak conv to short plus
         if not self.short_plus:
-            self.choice_conv1x1 = torch.nn.Conv2d(
+            self.choice_conv1x1 = sddn.Conv2dMixedPrecision(
                 predict_c, self.in_c, (1, 1), bias=False
             )
             if leak_choice:
-                self.leak_conv1x1 = torch.nn.Conv2d(
+                self.leak_conv1x1 = sddn.Conv2dMixedPrecision(
                     predict_c, self.in_c, (1, 1), bias=False
                 )
         self.ddo = DiscreteDistributionOutput(
@@ -843,11 +843,11 @@ class DiscreteDistributionBlock(torch.nn.Module):
             inp = torch.cat(
                 [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
                 * batch_size
-            ).cuda()
+            ).cuda().half()
             predict = torch.cat(
                 [torch.linspace(-1, 1, self.predict_c).reshape(1, self.predict_c, 1, 1)]
                 * batch_size
-            ).cuda()
+            ).cuda().half()
             feat_leak = predict
         b, c, h, w = inp.shape
         if not hasattr(self, "choice_conv1x1"):
@@ -867,6 +867,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
                 inp = inp + self.leak_conv1x1(feat_leak)
         d["feat_last"] = self.block(inp)
         d = self.ddo(d)
+        # g()/0
         return d
 
 
@@ -987,13 +988,13 @@ class PHDDNHandsDense(
             scale_to_blockn = [1, 8, 16, 16, 8, 4, 3]
             scale_to_repeatn = [3, 10, 10, 10, 10, 5, 2]
             scale_to_outputk = [64, 16, 16, 16, 64, 512, 512]
-            if boxx.cf.debug:
-                scale_to_channeln = [4, 8] * 7
-            get_channeln = lambda scalei: scale_to_channeln[scalei]
-            get_blockn = lambda scalei: scale_to_blockn[scalei]
-            get_outputk = lambda scalei: scale_to_outputk[scalei]
-            get_repeatn = lambda scalei: scale_to_repeatn[scalei]
-            self.scale_to_repeatn = dict(enumerate(scale_to_repeatn))
+            # if boxx.cf.debug:
+            #     scale_to_channeln = [4, 8] * 7
+            # get_channeln = lambda scalei: scale_to_channeln[scalei]
+            # get_blockn = lambda scalei: scale_to_blockn[scalei]
+            # get_outputk = lambda scalei: scale_to_outputk[scalei]
+            # get_repeatn = lambda scalei: scale_to_repeatn[scalei]
+            # self.scale_to_repeatn = dict(enumerate(scale_to_repeatn))
 
         def set_block(name, block):
             self.module_names.append(name)
@@ -1231,8 +1232,8 @@ class PHDDNHandsSparse(
         return d
 
 
-# PHDDN = PHDDNHandsDense
-PHDDN = PHDDNHandsSparse
+PHDDN = PHDDNHandsDense
+# PHDDN = PHDDNHandsSparse
 if __name__ == "__main__":
     img_resolution, in_channels, out_channels = 32, 3, 3
     target = torch.zeros((2, 3, 32, 32)).cuda()
@@ -1244,9 +1245,11 @@ if __name__ == "__main__":
             torch.randn(shape).cuda().requires_grad_(True)
             for shape in [(2, 3, 32, 32), (2,), (2, 0), (2, 9)]
         ]
-        params[0] = params[0] * 0
+        params[0] = (params[0] * 0).half()
         net = net.train()
-        out = misc.print_module_summary(net, params, max_nesting=1)
+        with boxx.timeit("SongUNet"):
+            out = misc.print_module_summary(net, params, max_nesting=1)
+        1/0
     if "DDN":
         img_resolution = 32
         boxx.cf.debug = True
@@ -1775,6 +1778,17 @@ class EDMPrecond(torch.nn.Module):
             class_labels=class_labels,
             **model_kwargs,
         )
+        # boxx.g()/0
+        # --fp16
+        # └── /: tuple 4
+        #     ├── 0: (3, 3, 32, 32) of torch.cuda.HalfTensor @ cuda:0
+        #     ├── 1: (3,) of torch.cuda.FloatTensor @ cuda:0
+        #     ├── 2: None
+        #     └── 3: dict  0
+        # tree-F_x
+        # └── /: (3, 3, 32, 32) of torch.cuda.HalfTensor @ cuda:0
+        # tree-getpara(self.model)
+        # └── /: (4, 9) of torch.cuda.FloatTensor @ cuda:0
         assert F_x.dtype == dtype
         D_x = c_skip * x + c_out * F_x.to(torch.float32)
         # boxx.cf.debug and boxx.g()
