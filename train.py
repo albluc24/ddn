@@ -145,6 +145,14 @@ def parse_int_list(s):
     show_default=True,
 )
 @click.option(
+    "--learn-res",
+    help="learn_residual in SDDNOutput",
+    metavar="BOOL",
+    type=bool,
+    default=False,
+    show_default=True,
+)
+@click.option(
     "--lr",
     help="Learning rate",
     metavar="FLOAT",
@@ -281,6 +289,10 @@ def main(**kwargs):
         --data=datasets/cifar10-32x32.zip --cond=1 --arch=ddpmpp
     """
     boxx.cf.kwargs = kwargs
+    # TODO default is True?
+    import sddn
+    sddn.DiscreteDistributionOutput.learn_residual = kwargs.get("learn_res")
+        
 
     opts = dnnlib.EasyDict(kwargs)
     torch.multiprocessing.set_start_method("spawn", force=True)
@@ -520,6 +532,7 @@ if __name__ == "__main__":
                 "--max-outputk=64",
                 # "--arch=ddpmpp"
                 # "--transfer=cifar10-ddn.pkl",
+                "--learn-res=1",
             ]
         )
         from sddn import DiscreteDistributionOutput
