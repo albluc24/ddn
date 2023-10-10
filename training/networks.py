@@ -893,7 +893,9 @@ def get_blockn(scalei):
         1: 2,
         2: 4,
         3: 8,
-        4: 8,
+        4: 16,
+        5: 32,
+        6: 64,
     }
     if scalei not in scalei_to_blockn:
         scalei_to_blockn[scalei] = max(scalei_to_blockn.values())

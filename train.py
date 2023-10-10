@@ -117,7 +117,7 @@ def parse_int_list(s):
     help="max block num per resolution",
     metavar="INT",
     type=click.IntRange(min=1),
-    default=8,
+    default=64,
     show_default=True,
 )
 @click.option(
@@ -199,7 +199,7 @@ def parse_int_list(s):
     help="Enable mixed-precision training",
     metavar="BOOL",
     type=bool,
-    default=False,
+    default=True,
     show_default=True,
 )
 @click.option(
