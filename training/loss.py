@@ -91,6 +91,21 @@ class EDMLoss:
         loss = weight * ((D_yn - y) ** 2)
         boxx.cf.debug and boxx.g()
         return loss
+    """
+# analysis about sigma 
+tree-sigma
+└── /: (batch, 1, 1, 1) of torch.cuda.FloatTensor @ cuda:0
+
+rnd_normal = torch.randn([10000, 1, 1, 1], device=images.device)
+sigma = (rnd_normal * self.P_std + self.P_mean).exp()
+
+loga-(rnd_normal * self.P_std + self.P_mean)
+shape:(10000, 1, 1, 1) type:(float32 of torch.Tensor) max: 3.1941, min: -5.652, mean: -1.1937
+
+loga-(rnd_normal * self.P_std + self.P_mean).exp()
+shape:(10000, 1, 1, 1) type:(float32 of torch.Tensor) max: 24.389, min: 0.0035106, mean: 0.62631
+plot(sigma,1)
+    """
 
 
 # ----------------------------------------------------------------------------
@@ -107,7 +122,7 @@ class DDNLoss:
         y, augment_labels = (
             augment_pipe(images) if augment_pipe is not None else (images, None)
         )
-        d = net(dict(target=y))
+        d = net(dict(target=y, augment_labels=augment_labels))
         if "pixel.weight.loss" and 0:  # TODO 也许没用
             pixeln_per_ddo = [
                 predict.shape[-1] * predict.shape[-2] for predict in d["predicts"]

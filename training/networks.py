@@ -755,6 +755,12 @@ class WarpDictIO(torch.nn.Module):
         d["feat_last"] = self.warp_dict.forward(d["feat_last"])
         return d
 
+@persistence.persistent_class
+class SongUNetInputDict(SongUNet):
+    def forward(self, d):
+        d["feat_last"] = super().forward(d["feat_last"], d.get("noise_labels"), d.get("class_labels"), d.get("augment_labels"),)
+        # def forward(self, x, noise_labels, class_labels, augment_labels=None):
+        return d
 
 @persistence.persistent_class
 class UpBlock(UNetBlockWoEmb):
@@ -789,6 +795,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
         loss_func=None,
         distance_func=None,
         leak_choice=True,
+        input_dict=False,
     ):
         super().__init__()
         self.block = block
@@ -805,10 +812,11 @@ class DiscreteDistributionBlock(torch.nn.Module):
         self.out_c = (
             out_c
             or getattr(block_last, "out_c", None)
-            or getattr(block_last, "out_channels", None)
+            or getattr(block_last, "out_channels", self.in_c)
         )
         self.predict_c = predict_c
         self.leak_choice = leak_choice
+        self.input_dict = input_dict
 
         # TODO replace choice and leak conv to short plus
         if not self.short_plus:
@@ -865,7 +873,11 @@ class DiscreteDistributionBlock(torch.nn.Module):
             inp = inp + self.choice_conv1x1(predict)
             if self.leak_choice:
                 inp = inp + self.leak_conv1x1(feat_leak)
-        d["feat_last"] = self.block(inp)
+        if self.input_dict:
+            d["feat_last"] = inp
+            d = self.block(d)
+        else:
+            d["feat_last"] = self.block(inp)
         d = self.ddo(d)
         # g()/0
         return d
@@ -893,16 +905,16 @@ def get_blockn(scalei):
         1: 2,
         2: 4,
         3: 8,
-        4: 16,
-        5: 32,
-        6: 64,
+        # 4: 16,
+        # 5: 32,
+        # 6: 64,
     }
     if scalei not in scalei_to_blockn:
         scalei_to_blockn[scalei] = max(scalei_to_blockn.values())
     blockn = scalei_to_blockn[scalei]
     blockn = min(boxx.cf.get("kwargs", {}).get("max_blockn", blockn), blockn)
     return blockn
-
+    
 
 @persistence.persistent_class
 class PHDDNHandsDense(
@@ -1037,7 +1049,29 @@ class PHDDNHandsDense(
                     DiscreteDistributionBlock(block, k, output_size=size),
                 )
                 cin = channeln
-
+        self.refiner_repeatn = 3 if boxx.cf.debug else 20
+        refiner_outputk = 4  # 由于大体结构已经确定, 希望网络只做 debulr 操作, 所以理论上 outputk 为 1 就可以了
+        if self.refiner_repeatn:
+            unet = SongUNetInputDict(
+            img_resolution=img_resolution,
+            in_channels=channeln,  # input is channeln.
+            out_channels=channeln,  # output is channeln.
+            label_dim=label_dim,
+            augment_dim=augment_dim,
+            model_channels=model_channels,
+            channel_mult=channel_mult,
+            channel_mult_emb=channel_mult_emb,
+            num_blocks=num_blocks,
+            attn_resolutions=attn_resolutions,
+            dropout=dropout,
+            label_dropout=label_dropout,
+            embedding_type=embedding_type,
+            channel_mult_noise=channel_mult_noise,
+            encoder_type=encoder_type,
+            decoder_type=decoder_type,
+            resample_filter=resample_filter,
+        )
+            self.refiner = DiscreteDistributionBlock(unet, refiner_outputk, output_size=img_resolution, in_c=channeln, out_c=channeln, predict_c=out_channels, input_dict=True)
     def forward(self, d=None, _sigma=None, labels=None):
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
@@ -1048,6 +1082,17 @@ class PHDDNHandsDense(
                         continue
                     module = getattr(self, name)
                     d = module(d)
+        
+        feat = d["feat_last"]
+        batch_size = feat.shape[0]
+        for repeati in range(self.refiner_repeatn):
+            d["noise_labels"] = torch.Tensor([(repeati/(self.refiner_repeatn-1)) * 2 - 1] * batch_size).to(feat)
+            # print(d["noise_labels"])
+            # print(d.get("augment_labels"))
+            # print("repeati", repeati)
+            d = self.refiner(d)
+        # boxx.tree-d
+        # print(repeati)
         return d
 
     def table(
@@ -1780,7 +1825,23 @@ class EDMPrecond(torch.nn.Module):
             class_labels=class_labels,
             **model_kwargs,
         )
-        # boxx.g()/0
+        # analysis c_noise
+        # boxx.cf.sigmas = boxx.cf.get("sigmas",[]) + [boxx.npa(sigma)]
+        # if boxx.increase("sigma") > 5:
+        #     boxx.g()
+        """
+loga-np.concatenate(boxx.cf.sigmas)
+shape:(1005, 1, 1, 1) type:(float32 of numpy.ndarray) max: 20.767, min: 0.0062506, mean: 0.61416
+
+loga-np.concatenate(boxx.cf.c_noise)
+shape:(1005, 1, 1, 1) type:(float32 of numpy.ndarray) max: 0.57047, min: -1.1851, mean: -0.30976
+
+show-net.model.map_noise(torch.linspace(-1., 1, 10))
+net.model.map_noise(p/torch.linspace(-1, 1, 3))
+[[0.54, 1.0, -0.84, -10e-05],
+ [1.0, 1.0, 0.0, 0.0],
+ [0.54, 1.0, 0.84, 10e-05]]
+"""
         # --fp16
         # └── /: tuple 4
         #     ├── 0: (3, 3, 32, 32) of torch.cuda.HalfTensor @ cuda:0
