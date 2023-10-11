@@ -33,7 +33,8 @@ def ddn_sampler(
     *args,
     **kwargs,
 ):
-    d = net({"batch_size": len(latents)}, None, class_labels)
+    with torch.no_grad():
+        d = net({"batch_size": len(latents)}, None, class_labels)
     boxx.mg()
     if boxx.cf.debug:
         show(d["predict"], frombgr)
@@ -508,7 +509,11 @@ def main(
     # Load network.
     dist.print0(f'Loading network from "{network_pkl}"...')
     with dnnlib.util.open_url(network_pkl, verbose=(dist.get_rank() == 0)) as f:
-        net = pickle.load(f)["ema"].to(device)
+        if network_pkl.endswith(".pkl"):
+            net = pickle.load(f)["ema"].to(device)
+        elif network_pkl.endswith(".pt"):
+            net = torch.load(f)["net"].to(device) # 会保存模型代码吗?
+            net = net.eval()
 
     # Other ranks follow.
     if dist.get_rank() == 0:
@@ -585,7 +590,7 @@ def main(
         vis_side = int(len(vis) ** 0.5)
         vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
         visp = (
-            network_pkl.replace(".pkl", "-vis.png")
+            network_pkl.replace(".pkl", "-vis.png").replace(".pt", "-vis.png")
             if outdir.endswith("/generate")
             else os.path.abspath(outdir) + "-vis.png"
         )

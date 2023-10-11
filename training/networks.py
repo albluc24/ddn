@@ -1086,7 +1086,7 @@ class PHDDNHandsDense(
         feat = d["feat_last"]
         batch_size = feat.shape[0]
         for repeati in range(self.refiner_repeatn):
-            d["noise_labels"] = torch.Tensor([(repeati/(self.refiner_repeatn-1)) * 2 - 1] * batch_size).to(feat)
+            d["noise_labels"] = torch.Tensor([(repeati/max(self.refiner_repeatn-1, 1)) * 2 - 1] * batch_size).to(feat)
             # print(d["noise_labels"])
             # print(d.get("augment_labels"))
             # print("repeati", repeati)
