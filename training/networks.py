@@ -1049,7 +1049,7 @@ class PHDDNHandsDense(
                     DiscreteDistributionBlock(block, k, output_size=size),
                 )
                 cin = channeln
-        self.refiner_repeatn = 3 if boxx.cf.debug else 20
+        self.refiner_repeatn = 3 if boxx.cf.debug else 9
         refiner_outputk = 4  # 由于大体结构已经确定, 希望网络只做 debulr 操作, 所以理论上 outputk 为 1 就可以了
         if self.refiner_repeatn:
             unet = SongUNetInputDict(

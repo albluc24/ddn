@@ -126,7 +126,10 @@ def training_loop(
     ddp = torch.nn.parallel.DistributedDataParallel(
         net, device_ids=[device], broadcast_buffers=False
     )
-    ema = copy.deepcopy(net).eval().requires_grad_(False)
+    if ema_halflife_kimg:
+        ema = copy.deepcopy(net).eval().requires_grad_(False)
+    else:
+        ema = net
 
     # Resume training from previous snapshot.
     if resume_pkl is not None:
@@ -208,8 +211,8 @@ def training_loop(
             ema_beta = 0.5 ** (batch_size / max(ema_halflife_nimg, 1e-8))
             for p_ema, p_net in zip(ema.parameters(), net.parameters()):
                 p_ema.copy_(p_net.detach().lerp(p_ema, ema_beta))
-        else:
-            ema = ema.to("cpu")
+        # else:
+        #     ema = ema.to("cpu")
 
         # Perform maintenance tasks once per tick.
         cur_nimg += batch_size
@@ -264,9 +267,9 @@ def training_loop(
         # Save network snapshot.
         if (snapshot_ticks is not None) and (done or cur_tick % snapshot_ticks == 0):
             torch.distributed.barrier()
-            if not ema_halflife_kimg:
-                # TODO 适配和打开 EMA 让 split 支持 EMA
-                ema = copy.deepcopy(net).eval().requires_grad_(False)
+            # if not ema_halflife_kimg:
+            #     # TODO 适配和打开 EMA 让 split 支持 EMA
+            #     ema = copy.deepcopy(net).eval().requires_grad_(False)
             data = dict(
                 ema=ema,
                 loss_fn=loss_fn,
