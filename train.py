@@ -137,6 +137,14 @@ def parse_int_list(s):
     show_default=True,
 )
 @click.option(
+    "--refinern",
+    help="repeat N of refiner",
+    metavar="INT",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+)
+@click.option(
     "--debug",
     help="debug mode",
     metavar="BOOL",
