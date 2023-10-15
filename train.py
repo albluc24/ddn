@@ -299,8 +299,8 @@ def main(**kwargs):
     boxx.cf.kwargs = kwargs
     # TODO default is True?
     import sddn
+
     sddn.DiscreteDistributionOutput.learn_residual = kwargs.get("learn_res")
-        
 
     opts = dnnlib.EasyDict(kwargs)
     torch.multiprocessing.set_start_method("spawn", force=True)

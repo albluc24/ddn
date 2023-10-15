@@ -512,7 +512,7 @@ def main(
         if network_pkl.endswith(".pkl"):
             net = pickle.load(f)["ema"].to(device)
         elif network_pkl.endswith(".pt"):
-            net = torch.load(f)["net"].to(device) # 会保存模型代码吗?
+            net = torch.load(f)["net"].to(device)  # 会保存模型代码吗?
             net = net.eval()
 
     # Other ranks follow.

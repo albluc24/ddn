@@ -624,6 +624,7 @@ class SongUNet(torch.nn.Module):
                 x = block(x, emb)
         return aux
 
+
 import sddn
 from sddn import DiscreteDistributionOutput
 
@@ -755,12 +756,19 @@ class WarpDictIO(torch.nn.Module):
         d["feat_last"] = self.warp_dict.forward(d["feat_last"])
         return d
 
+
 @persistence.persistent_class
 class SongUNetInputDict(SongUNet):
     def forward(self, d):
-        d["feat_last"] = super().forward(d["feat_last"], d.get("noise_labels"), d.get("class_labels"), d.get("augment_labels"),)
+        d["feat_last"] = super().forward(
+            d["feat_last"],
+            d.get("noise_labels"),
+            d.get("class_labels"),
+            d.get("augment_labels"),
+        )
         # def forward(self, x, noise_labels, class_labels, augment_labels=None):
         return d
+
 
 @persistence.persistent_class
 class UpBlock(UNetBlockWoEmb):
@@ -848,14 +856,26 @@ class DiscreteDistributionBlock(torch.nn.Module):
         predict = d.get("predict")
         feat_leak = d.get("feat_leak")
         if inp is None:
-            inp = torch.cat(
-                [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
-                * batch_size
-            ).cuda().half()
-            predict = torch.cat(
-                [torch.linspace(-1, 1, self.predict_c).reshape(1, self.predict_c, 1, 1)]
-                * batch_size
-            ).cuda().half()
+            inp = (
+                torch.cat(
+                    [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
+                    * batch_size
+                )
+                .cuda()
+                .half()
+            )
+            predict = (
+                torch.cat(
+                    [
+                        torch.linspace(-1, 1, self.predict_c).reshape(
+                            1, self.predict_c, 1, 1
+                        )
+                    ]
+                    * batch_size
+                )
+                .cuda()
+                .half()
+            )
             feat_leak = predict
         b, c, h, w = inp.shape
         if not hasattr(self, "choice_conv1x1"):
@@ -914,7 +934,7 @@ def get_blockn(scalei):
     blockn = scalei_to_blockn[scalei]
     blockn = min(boxx.cf.get("kwargs", {}).get("max_blockn", blockn), blockn)
     return blockn
-    
+
 
 @persistence.persistent_class
 class PHDDNHandsDense(
@@ -1049,29 +1069,40 @@ class PHDDNHandsDense(
                     DiscreteDistributionBlock(block, k, output_size=size),
                 )
                 cin = channeln
-        self.refiner_repeatn = 3 if boxx.cf.debug else boxx.cf.get("kwargs", {}).get("refinern", 0)
+        self.refiner_repeatn = (
+            3 if boxx.cf.debug else boxx.cf.get("kwargs", {}).get("refinern", 0)
+        )
         refiner_outputk = 4  # 由于大体结构已经确定, 希望网络只做 debulr 操作, 所以理论上 outputk 为 1 就可以了
         if self.refiner_repeatn:
             unet = SongUNetInputDict(
-            img_resolution=img_resolution,
-            in_channels=channeln,  # input is channeln.
-            out_channels=channeln,  # output is channeln.
-            label_dim=label_dim,
-            augment_dim=augment_dim,
-            model_channels=model_channels,
-            channel_mult=channel_mult,
-            channel_mult_emb=channel_mult_emb,
-            num_blocks=num_blocks,
-            attn_resolutions=attn_resolutions,
-            dropout=dropout,
-            label_dropout=label_dropout,
-            embedding_type=embedding_type,
-            channel_mult_noise=channel_mult_noise,
-            encoder_type=encoder_type,
-            decoder_type=decoder_type,
-            resample_filter=resample_filter,
-        )
-            self.refiner = DiscreteDistributionBlock(unet, refiner_outputk, output_size=img_resolution, in_c=channeln, out_c=channeln, predict_c=out_channels, input_dict=True)
+                img_resolution=img_resolution,
+                in_channels=channeln,  # input is channeln.
+                out_channels=channeln,  # output is channeln.
+                label_dim=label_dim,
+                augment_dim=augment_dim,
+                model_channels=model_channels,
+                channel_mult=channel_mult,
+                channel_mult_emb=channel_mult_emb,
+                num_blocks=num_blocks,
+                attn_resolutions=attn_resolutions,
+                dropout=dropout,
+                label_dropout=label_dropout,
+                embedding_type=embedding_type,
+                channel_mult_noise=channel_mult_noise,
+                encoder_type=encoder_type,
+                decoder_type=decoder_type,
+                resample_filter=resample_filter,
+            )
+            self.refiner = DiscreteDistributionBlock(
+                unet,
+                refiner_outputk,
+                output_size=img_resolution,
+                in_c=channeln,
+                out_c=channeln,
+                predict_c=out_channels,
+                input_dict=True,
+            )
+
     def forward(self, d=None, _sigma=None, labels=None):
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
@@ -1082,11 +1113,13 @@ class PHDDNHandsDense(
                         continue
                     module = getattr(self, name)
                     d = module(d)
-        
+
         feat = d["feat_last"]
         batch_size = feat.shape[0]
         for repeati in range(self.refiner_repeatn):
-            d["noise_labels"] = torch.Tensor([(repeati/max(self.refiner_repeatn-1, 1)) * 2 - 1] * batch_size).to(feat)
+            d["noise_labels"] = torch.Tensor(
+                [(repeati / max(self.refiner_repeatn - 1, 1)) * 2 - 1] * batch_size
+            ).to(feat)
             # print(d["noise_labels"])
             # print(d.get("augment_labels"))
             # print("repeati", repeati)
@@ -1296,7 +1329,7 @@ if __name__ == "__main__":
         net = net.train()
         with boxx.timeit("SongUNet"):
             out = misc.print_module_summary(net, params, max_nesting=1)
-        1/0
+        1 / 0
     if "DDN":
         img_resolution = 32
         boxx.cf.debug = True

@@ -91,6 +91,7 @@ class EDMLoss:
         loss = weight * ((D_yn - y) ** 2)
         boxx.cf.debug and boxx.g()
         return loss
+
     """
 # analysis about sigma 
 tree-sigma
