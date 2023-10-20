@@ -164,7 +164,7 @@ def parse_int_list(s):
     "--diverge-shaping",
     help="diverge_shaping_rate",
     metavar="FLOAT",
-    type=click.FloatRange(min=0., max=1.),
+    type=click.FloatRange(min=0.0, max=1.0),
     default=0,
     show_default=True,
 )

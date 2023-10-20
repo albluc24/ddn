@@ -120,6 +120,7 @@ class DDNLoss:
         self.sigma_data = sigma_data
 
         import sddn
+
         self.diverge_shaping_manager = sddn.DivergeShapingManager()
         self.diverge_shaping = boxx.cf.get("kwargs", {}).get("diverge_shaping", 0)
 
@@ -131,7 +132,7 @@ class DDNLoss:
         with self.diverge_shaping_manager(di, self.diverge_shaping):
             d = net(di)
         self.diverge_shaping_manager.set_total_output_level(d)
-        
+
         if "pixel.weight.loss" and 0:  # TODO 也许没用
             pixeln_per_ddo = [
                 predict.shape[-1] * predict.shape[-2] for predict in d["predicts"]
