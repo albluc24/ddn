@@ -161,6 +161,14 @@ def parse_int_list(s):
     show_default=True,
 )
 @click.option(
+    "--diverge-shaping",
+    help="diverge_shaping_rate",
+    metavar="FLOAT",
+    type=click.FloatRange(min=0., max=1.),
+    default=0,
+    show_default=True,
+)
+@click.option(
     "--lr",
     help="Learning rate",
     metavar="FLOAT",
@@ -542,6 +550,7 @@ if __name__ == "__main__":
                 # "--transfer=cifar10-ddn.pkl",
                 "--learn-res=1",
                 "--fp16=1",
+                "--diverge-shaping=1",
             ]
         )
         from sddn import DiscreteDistributionOutput
