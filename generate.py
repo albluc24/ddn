@@ -23,6 +23,8 @@ from torch_utils import distributed as dist
 # ----------------------------------------------------------------------------
 # Proposed EDM sampler (Algorithm 2).
 
+t2rgb = lambda x: (tprgb(x) * 127.5 + 128).clip(0, 255).astype(np.uint8)
+
 
 def ddn_sampler(
     net,
@@ -33,11 +35,27 @@ def ddn_sampler(
     *args,
     **kwargs,
 ):
+    d = {"batch_size": len(latents)}
+    if "batch_seeds" in kwargs:
+        total_output_level = boxx.cf.get("total_output_level", 2000)
+        d["idx_ks"] = torch.cat(
+            [
+                torch.rand(
+                    total_output_level, 1, generator=torch.Generator().manual_seed(seed)
+                )
+                for seed in kwargs["batch_seeds"].tolist()
+            ],
+            -1,
+        )
     with torch.no_grad():
-        d = net({"batch_size": len(latents)}, None, class_labels)
+        d = net(d, None, class_labels)
+    boxx.cf.total_output_level = d.get("output_level", -2) + 1
     boxx.mg()
     if boxx.cf.debug:
-        show(d["predict"], frombgr)
+        show(
+            d["predict"],
+            t2rgb,
+        )
     return d["predict"]
 
 
@@ -472,7 +490,7 @@ def parse_int_list(s):
     help="learn_residual in SDDNOutput",
     metavar="BOOL",
     type=bool,
-    default=False,
+    default=None,
     show_default=True,
 )
 def main(
@@ -505,13 +523,14 @@ def main(
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
     dirr = os.path.dirname(network_pkl)
-    if os.path.exists(dirr):
-        train_kwargs = boxx.loadjson(os.path.join(dirr, "training_options.json"))
+    training_options_json = os.path.join(dirr, "training_options.json")
+    if os.path.exists(training_options_json):
+        train_kwargs = boxx.loadjson(training_options_json)
         if learn_res is None:
-            leanr_res = train_kwargs.get("kwargs", {}).get(
-                "learn_res", "learn.res" in dirr
+            learn_res = train_kwargs.get("kwargs", {}).get(
+                "learn_res", "learn.res" in network_pkl
             )
-            sddn.DiscreteDistributionOutput.learn_residual = leanr_res
+        sddn.DiscreteDistributionOutput.learn_residual = learn_res
     dist.init()
     num_batches = (
         (len(seeds) - 1) // (max_batch_size * dist.get_world_size()) + 1
@@ -572,6 +591,7 @@ def main(
         sampler_fn = ablation_sampler if have_ablation_kwargs else edm_sampler
         if sampler_kwargs.get("discretization", "ddn") == "ddn":
             sampler_fn = ddn_sampler
+            sampler_kwargs["batch_seeds"] = batch_seeds
         images = sampler_fn(
             net, latents, class_labels, randn_like=rnd.randn_like, **sampler_kwargs
         )
@@ -648,7 +668,8 @@ if __name__ == "__main__":
         main(
             [
                 "--seeds=0-8",
-                "--network=cifar10-ddn.pkl",
+                "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
+                # "--network=cifar10-ddn.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
                 "--batch=2",
