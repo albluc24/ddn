@@ -501,7 +501,9 @@ def main(**kwargs):
     if dist.get_rank() == 0:
         os.makedirs(c.run_dir, exist_ok=True)
         with open(os.path.join(c.run_dir, "training_options.json"), "wt") as f:
-            json.dump(c, f, indent=2)
+            c_dump = {"kwargs": kwargs}
+            c_dump.update(c)
+            json.dump(c_dump, f, indent=2)
         dnnlib.util.Logger(
             file_name=os.path.join(c.run_dir, "log.txt"),
             file_mode="a",

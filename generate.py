@@ -5,10 +5,10 @@
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 import boxx
+import sddn
 
 """Generate random images using the techniques described in the paper
 "Elucidating the Design Space of Diffusion-Based Generative Models"."""
-
 import os
 import re
 import click
@@ -467,6 +467,14 @@ def parse_int_list(s):
     metavar="vp|none",
     type=click.Choice(["vp", "none"]),
 )
+@click.option(
+    "--learn-res",
+    help="learn_residual in SDDNOutput",
+    metavar="BOOL",
+    type=bool,
+    default=False,
+    show_default=True,
+)
 def main(
     network_pkl,
     outdir,
@@ -475,6 +483,7 @@ def main(
     class_idx,
     max_batch_size,
     device=torch.device("cuda"),
+    learn_res=None,
     **sampler_kwargs,
 ):
     """Generate random images using the techniques described in the paper
@@ -495,6 +504,14 @@ def main(
     if outdir is None:
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
+    dirr = os.path.dirname(network_pkl)
+    if os.path.exists(dirr):
+        train_kwargs = boxx.loadjson(os.path.join(dirr, "training_options.json"))
+        if learn_res is None:
+            leanr_res = train_kwargs.get("kwargs", {}).get(
+                "learn_res", "learn.res" in dirr
+            )
+            sddn.DiscreteDistributionOutput.learn_residual = leanr_res
     dist.init()
     num_batches = (
         (len(seeds) - 1) // (max_batch_size * dist.get_world_size()) + 1
