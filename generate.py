@@ -493,6 +493,14 @@ def parse_int_list(s):
     default=None,
     show_default=True,
 )
+@click.option(
+    "--skip-exist",
+    help="skip-exist",
+    metavar="BOOL",
+    type=bool,
+    default=True,
+    show_default=True,
+)
 def main(
     network_pkl,
     outdir,
@@ -502,6 +510,7 @@ def main(
     max_batch_size,
     device=torch.device("cuda"),
     learn_res=None,
+    skip_exist=True,
     **sampler_kwargs,
 ):
     """Generate random images using the techniques described in the paper
@@ -522,6 +531,15 @@ def main(
     if outdir is None:
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
+    visp = (
+        network_pkl.replace(".pkl", "-vis.png").replace(".pt", "-vis.png")
+        if outdir.endswith("/generate")
+        else os.path.abspath(outdir) + "-vis.png"
+    )
+    if skip_exist and os.path.exists(visp):
+        print("Vis exists:", visp)
+        return
+
     dirr = os.path.dirname(network_pkl)
     training_options_json = os.path.join(dirr, "training_options.json")
     if os.path.exists(training_options_json):
@@ -531,6 +549,7 @@ def main(
                 "learn_res", "learn.res" in network_pkl
             )
         sddn.DiscreteDistributionOutput.learn_residual = learn_res
+
     dist.init()
     num_batches = (
         (len(seeds) - 1) // (max_batch_size * dist.get_world_size()) + 1
@@ -626,11 +645,6 @@ def main(
         )
         vis_side = int(len(vis) ** 0.5)
         vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
-        visp = (
-            network_pkl.replace(".pkl", "-vis.png").replace(".pt", "-vis.png")
-            if outdir.endswith("/generate")
-            else os.path.abspath(outdir) + "-vis.png"
-        )
         boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
         print("Save vis to:", visp)
     dist.print0("Done.")
