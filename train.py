@@ -125,7 +125,7 @@ def parse_int_list(s):
     help="max output k of DDN",
     metavar="INT",
     type=click.IntRange(min=3),
-    default=1024,
+    default=8,
     show_default=True,
 )
 @click.option(
@@ -157,7 +157,7 @@ def parse_int_list(s):
     help="learn_residual in SDDNOutput",
     metavar="BOOL",
     type=bool,
-    default=False,
+    default=True,
     show_default=True,
 )
 @click.option(
@@ -396,6 +396,7 @@ def main(**kwargs):
         c.network_kwargs.class_name = "training.networks.DDNPrecond"
         c.network_kwargs.model_type = "PHDDN"
         c.loss_kwargs.class_name = "training.loss.DDNLoss"
+        assert opts.augment == 0, f"augment={opts.augment}, DDN better not augment"
 
     # Network options.
     if opts.cbase is not None:
