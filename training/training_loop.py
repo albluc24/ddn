@@ -255,7 +255,11 @@ def training_loop(
         ]
         torch.cuda.reset_peak_memory_stats()
         dist.print0(
-            boxx.cf.desc + ": " + " ".join(fields) + f" loss {round(loss_.tolist(),3)}" + f" mean {boxx.strnum(loss.tolist()/images.numel())}"
+            boxx.cf.desc
+            + ": "
+            + " ".join(fields)
+            + f" loss {round(loss_.tolist(),3)}"
+            + f"/mean {boxx.strnum(loss.tolist()/images.numel())}"
         )
 
         # Check for abort.
