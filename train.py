@@ -7,7 +7,7 @@
 
 """Train diffusion-based generative model using the techniques described in the
 paper "Elucidating the Design Space of Diffusion-Based Generative Models"."""
-
+import ddn_utils
 import os
 import re
 import json
