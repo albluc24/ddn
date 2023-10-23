@@ -445,7 +445,7 @@ def main(**kwargs):
                 "--resume must point to training-state-*.pt from a previous training run"
             )
         c.resume_pkl = os.path.join(
-            os.path.dirname(opts.resume), f"network-snapshot-{match.group(1)}.pkl"
+            os.path.dirname(opts.resume), f"shot-{match.group(1)}.pkl"
         )
         c.resume_kimg = int(match.group(1))
         c.resume_state_dump = opts.resume
@@ -453,7 +453,8 @@ def main(**kwargs):
     # Description string.
     cond_str = "cond" if c.dataset_kwargs.use_labels else "uncond"
     dtype_str = "fp16" if c.network_kwargs.use_fp16 else "fp32"
-    desc = f"{dataset_name:s}-{cond_str:s}-{opts.arch:s}-{opts.precond:s}-gpus{dist.get_world_size():d}-batch{c.batch_size:d}-{dtype_str:s}"
+    # desc = f"{dataset_name:s}-{cond_str:s}-{opts.arch:s}-{opts.precond:s}-gpus{dist.get_world_size():d}-batch{c.batch_size:d}-{dtype_str:s}"
+    desc = f"{dataset_name:s}"
     if opts.desc is not None:
         desc += f"-{opts.desc}"
     boxx.cf.desc = opts.desc or "default-task"

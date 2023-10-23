@@ -255,7 +255,7 @@ def training_loop(
         ]
         torch.cuda.reset_peak_memory_stats()
         dist.print0(
-            boxx.cf.desc + ": " + " ".join(fields) + f" loss {round(loss_.tolist(),3)}"
+            boxx.cf.desc + ": " + " ".join(fields) + f" loss {round(loss_.tolist(),3)}" + f" mean {boxx.strnum(loss.tolist()/images.numel())}"
         )
 
         # Check for abort.
@@ -284,7 +284,7 @@ def training_loop(
                 del value  # conserve memory
             if dist.get_rank() == 0:
                 with open(
-                    os.path.join(run_dir, f"network-snapshot-{cur_nimg//1000:06d}.pkl"),
+                    os.path.join(run_dir, f"shot-{cur_nimg//1000:06d}.pkl"),
                     "wb",
                 ) as f:
                     pickle.dump(data, f)

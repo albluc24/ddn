@@ -533,9 +533,9 @@ def main(
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
     visp = (
-        network_pkl.replace(".pkl", "-vis.png").replace(".pt", "-vis.png")
+        network_pkl.replace(".pkl", ".png").replace(".pt", ".png")
         if outdir.endswith("/generate")
-        else os.path.abspath(outdir) + "-vis.png"
+        else os.path.abspath(outdir) + ".png"
     )
     if skip_exist and os.path.exists(visp):
         print("Vis exists:", visp)
@@ -640,7 +640,7 @@ def main(
 
     torch.distributed.barrier()
     if dist.get_rank() == 0 and len(seeds) >= 4:
-        # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'-vis.png', np.concatenate(np.concatenate(arrs,2), 0))"
+        # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'.png', np.concatenate(np.concatenate(arrs,2), 0))"
         vis = npa(
             [imread(pa) for pa in glob(outdir + "/**/*.??g", recursive=True)[:100]]
         )
