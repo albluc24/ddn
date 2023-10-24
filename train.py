@@ -189,7 +189,8 @@ def parse_int_list(s):
     help="Dropout probability",
     metavar="FLOAT",
     type=click.FloatRange(min=0, max=1),
-    default=0.13,
+    # default=0.13,
+    default=0,
     show_default=True,
 )
 @click.option(

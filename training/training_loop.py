@@ -306,7 +306,7 @@ def training_loop(
                 os.path.join(run_dir, f"training-state-{cur_nimg//1000:06d}.pt"),
             )
         if (
-            boxx.timegap(3600, "save_training-state")
+            boxx.timegap(3600 * 2, "save_training-state")
             and cur_tick != 0
             and dist.get_rank() == 0
         ):

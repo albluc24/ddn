@@ -533,9 +533,9 @@ def main(
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
     visp = (
-        network_pkl.replace(".pkl", ".png").replace(".pt", ".png")
+        network_pkl.replace(".pkl", "v.png").replace(".pt", "v.png")
         if outdir.endswith("/generate")
-        else os.path.abspath(outdir) + ".png"
+        else os.path.abspath(outdir) + "v.png"
     )
     if skip_exist and os.path.exists(visp):
         print("Vis exists:", visp)
