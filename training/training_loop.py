@@ -259,7 +259,7 @@ def training_loop(
             + ": "
             + " ".join(fields)
             + f" loss {round(loss_.tolist(),3)}"
-            + f"/mean {boxx.strnum(loss.tolist()/images.numel())}"
+            + f"/mean {boxx.strnum(loss.sum().tolist()/images.numel())}"
         )
 
         # Check for abort.

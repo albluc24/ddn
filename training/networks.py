@@ -582,12 +582,13 @@ class SongUNet(torch.nn.Module):
             emb.reshape(emb.shape[0], 2, -1).flip(1).reshape(*emb.shape)
         )  # swap sin/cos
         if self.map_label is not None:
-            tmp = class_labels
+            tmp = class_labels  # batch, class of one hot (3, 10) of torch.cuda.FloatTensor @ cuda:0
             if self.training and self.label_dropout:
                 tmp = tmp * (
                     torch.rand([x.shape[0], 1], device=x.device) >= self.label_dropout
                 ).to(tmp.dtype)
             emb = emb + self.map_label(tmp * np.sqrt(self.map_label.in_features))
+            # boxx.increase("lable debug") and boxx.g()/0
         if self.map_augment is not None and augment_labels is not None:
             emb = emb + self.map_augment(augment_labels)
         emb = silu(self.map_layer0(emb))
@@ -928,6 +929,21 @@ def get_blockn(scalei):
     return blockn
 
 
+def get_class_embeding(classn=10, bit_each_channel=2, class0_is_zeros=True):
+    import math
+    num_base = 1<<bit_each_channel
+    emb_length = int(math.log2(classn-1)/bit_each_channel) + 1
+    emb = torch.zeros([classn, emb_length])
+    bits_to_v = dict(zip([("0"*bit_each_channel+bin(i)[2:])[-bit_each_channel:] for i in range(num_base)], torch.linspace(-1, 1, num_base)))
+    for classi in range(classn):
+        if class0_is_zeros and classi == 0: # skip class0, class0 as zereos
+            continue
+        bin_str = bin(classi)[2:]
+        bits = (emb_length * bit_each_channel-len(bin_str))* "0" +bin_str
+        emb[classi] = torch.as_tensor([bits_to_v[bits[i*bit_each_channel:i*bit_each_channel+bit_each_channel]] for i in range(emb_length)])
+    return emb
+
+
 @persistence.persistent_class
 class PHDDNHandsDense(
     torch.nn.Module
@@ -1096,6 +1112,8 @@ class PHDDNHandsDense(
             )
 
     def forward(self, d=None, _sigma=None, labels=None):
+        # labels's shape (batch, class) of one hot (3, 10) of torch.cuda.FloatTensor @ cuda:0
+        # class0 = zeros, if not has lables, then condtion is class0
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
                 for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
