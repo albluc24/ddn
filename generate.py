@@ -545,6 +545,7 @@ def main(
     training_options_json = os.path.join(dirr, "training_options.json")
     if os.path.exists(training_options_json):
         train_kwargs = boxx.loadjson(training_options_json)
+        boxx.cf.kwargs = train_kwargs.get("kwargs", {})
         if learn_res is None:
             learn_res = train_kwargs.get("kwargs", {}).get(
                 "learn_res", "learn.res" in network_pkl

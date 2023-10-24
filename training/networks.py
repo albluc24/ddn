@@ -856,26 +856,18 @@ class DiscreteDistributionBlock(torch.nn.Module):
         predict = d.get("predict")
         feat_leak = d.get("feat_leak")
         if inp is None:
-            inp = (
-                torch.cat(
-                    [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
-                    * batch_size
-                )
-                .cuda()
-                .half()
-            )
-            predict = (
-                torch.cat(
-                    [
-                        torch.linspace(-1, 1, self.predict_c).reshape(
-                            1, self.predict_c, 1, 1
-                        )
-                    ]
-                    * batch_size
-                )
-                .cuda()
-                .half()
-            )
+            inp = torch.cat(
+                [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
+                * batch_size
+            ).cuda()
+            predict = torch.cat(
+                [torch.linspace(-1, 1, self.predict_c).reshape(1, self.predict_c, 1, 1)]
+                * batch_size
+            ).cuda()
+            if boxx.cf.get("kwargs", {}).get(
+                "fp16",
+            ):
+                inp, predict = inp.half(), predict.half()
             feat_leak = predict
         b, c, h, w = inp.shape
         if not hasattr(self, "choice_conv1x1"):
