@@ -931,16 +931,32 @@ def get_blockn(scalei):
 
 def get_class_embeding(classn=10, bit_each_channel=2, class0_is_zeros=True):
     import math
-    num_base = 1<<bit_each_channel
-    emb_length = int(math.log2(classn-1)/bit_each_channel) + 1
+
+    num_base = 1 << bit_each_channel
+    emb_length = int(math.log2(classn - 1) / bit_each_channel) + 1
     emb = torch.zeros([classn, emb_length])
-    bits_to_v = dict(zip([("0"*bit_each_channel+bin(i)[2:])[-bit_each_channel:] for i in range(num_base)], torch.linspace(-1, 1, num_base)))
+    bits_to_v = dict(
+        zip(
+            [
+                ("0" * bit_each_channel + bin(i)[2:])[-bit_each_channel:]
+                for i in range(num_base)
+            ],
+            torch.linspace(-1, 1, num_base),
+        )
+    )
     for classi in range(classn):
-        if class0_is_zeros and classi == 0: # skip class0, class0 as zereos
+        if class0_is_zeros and classi == 0:  # skip class0, class0 as zereos
             continue
         bin_str = bin(classi)[2:]
-        bits = (emb_length * bit_each_channel-len(bin_str))* "0" +bin_str
-        emb[classi] = torch.as_tensor([bits_to_v[bits[i*bit_each_channel:i*bit_each_channel+bit_each_channel]] for i in range(emb_length)])
+        bits = (emb_length * bit_each_channel - len(bin_str)) * "0" + bin_str
+        emb[classi] = torch.as_tensor(
+            [
+                bits_to_v[
+                    bits[i * bit_each_channel : i * bit_each_channel + bit_each_channel]
+                ]
+                for i in range(emb_length)
+            ]
+        )
     return emb
 
 

@@ -556,7 +556,7 @@ if __name__ == "__main__":
                 "--learn-res=1",
                 "--fp16=1",
                 "--diverge-shaping=1",
-                "--cond=1"
+                "--cond=1",
             ]
         )
         from sddn import DiscreteDistributionOutput

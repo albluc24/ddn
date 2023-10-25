@@ -38,7 +38,7 @@ def ddn_sampler(
 ):
     d = {"batch_size": len(latents)}
     if "batch_seeds" in kwargs:
-        total_output_level = boxx.cf.get("total_output_level", 2000)
+        total_output_level = kwargs.get("total_output_level", 2000)
         d["idx_ks"] = torch.cat(
             [
                 torch.rand(
@@ -50,7 +50,7 @@ def ddn_sampler(
         )
     with torch.no_grad():
         d = net(d, None, class_labels)
-    boxx.cf.total_output_level = d.get("output_level", -2) + 1
+    kwargs["total_output_level"] = d.get("output_level", -2) + 1
     boxx.mg()
     if boxx.cf.debug:
         show(
@@ -499,7 +499,7 @@ def parse_int_list(s):
     help="skip-exist",
     metavar="BOOL",
     type=bool,
-    default=True,
+    default=None,
     show_default=True,
 )
 def main(
@@ -529,6 +529,7 @@ def main(
     torchrun --standalone --nproc_per_node=2 generate.py --outdir=out --seeds=0-999 --batch=64 \\
         --network=https://nvlabs-fi-cdn.nvidia.com/edm/pretrained/edm-cifar10-32x32-cond-vp.pkl
     """
+    network_pkl = network_pkl.replace("https://oss.iap.hh-d.brain" + "pp.cn/", "s3://")
     if outdir is None:
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
@@ -537,6 +538,8 @@ def main(
         if outdir.endswith("/generate")
         else os.path.abspath(outdir) + "v.png"
     )
+    if skip_exist is None:
+        skip_exist = len(seeds) in [100]
     if skip_exist and os.path.exists(visp):
         print("Vis exists:", visp)
         return
