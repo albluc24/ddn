@@ -128,7 +128,7 @@ class DDNLoss:
         y, augment_labels = (
             augment_pipe(images) if augment_pipe is not None else (images, None)
         )
-        di = dict(target=y, augment_labels=augment_labels)
+        di = dict(target=y, class_labels=labels, augment_labels=augment_labels)
         with self.diverge_shaping_manager(di, self.diverge_shaping):
             d = net(di)
         self.diverge_shaping_manager.set_total_output_level(d)
