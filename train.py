@@ -125,7 +125,7 @@ def parse_int_list(s):
     help="max block num per resolution",
     metavar="INT",
     type=click.IntRange(min=1),
-    default=64,
+    default=8,
     show_default=True,
 )
 @click.option(
@@ -198,6 +198,14 @@ def parse_int_list(s):
     metavar="FLOAT",
     type=click.FloatRange(min=0, max=1),
     # default=0.13,
+    default=0,
+    show_default=True,
+)
+@click.option(
+    "--chain-dropout",
+    help="Chain Dropout of DDN",
+    metavar="FLOAT",
+    type=click.FloatRange(min=0, max=1),
     default=0,
     show_default=True,
 )
@@ -317,6 +325,7 @@ def main(**kwargs):
     import sddn
 
     sddn.DiscreteDistributionOutput.learn_residual = kwargs.get("learn_res")
+    sddn.DiscreteDistributionOutput.chain_dropout = kwargs.get("chain_dropout")
 
     if kwargs.get("condition") == "class":
         kwargs["cond"] = True
@@ -560,14 +569,19 @@ if __name__ == "__main__":
                 "--cbase=4",
                 "--max-blockn=2",
                 "--max-outputk=64",
+                "--tick=1",
                 # "--arch=ddpmpp",
                 # "--transfer=cifar10-ddn.pkl",
                 "--learn-res=1",
                 "--fp16=1",
-                "--diverge-shaping=1",
-                "--cond=1",
+                # "--diverge-shaping=1",
+                # "--cond=1",
+                # "--condition=class",
+                # "--condition=resize8",
+                "--condition=edge",
             ]
         )
+        # show(d["condition"].float(), tprgb);show(d["target"].float(), tprgb, norma)
         from sddn import DiscreteDistributionOutput
 
         sdd = DiscreteDistributionOutput.inits[-1].sdd
