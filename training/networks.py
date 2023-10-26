@@ -847,7 +847,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
         )
         self.output_size = output_size
 
-    def forward(self, d=None):
+    def forward(self, d=None, condition_process=None):
         d = d if isinstance(d, dict) else {"batch_size": 1 if d is None else len(d)}
         if "target" in d:
             batch_size = len(d["target"])
@@ -856,7 +856,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
         inp = d.get("feat_last")
         predict = d.get("predict")
         feat_leak = d.get("feat_leak")
-        if inp is None:
+        if inp is None:  # init d
             inp = torch.cat(
                 [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
                 * batch_size
@@ -870,6 +870,7 @@ class DiscreteDistributionBlock(torch.nn.Module):
             ):
                 inp, predict = inp.half(), predict.half()
             feat_leak = predict
+        d["feat_last"] = inp
         b, c, h, w = inp.shape
         if not hasattr(self, "choice_conv1x1"):
             # boxx.g()/0
@@ -882,6 +883,16 @@ class DiscreteDistributionBlock(torch.nn.Module):
                 inp = inp + torch.nn.functional.pad(
                     feat_leak, (0, 0, 0, 0, c - self.predict_c, 0)
                 )
+            if condition_process:
+                stage_condition = condition_process(d)
+                if stage_condition is not None:
+                    condc = stage_condition.shape[1]
+                    cond_start = c // 2 - condc // 2
+                    inp = inp + torch.nn.functional.pad(
+                        stage_condition,
+                        (0, 0, 0, 0, cond_start, c - cond_start - condc),
+                    )
+
         else:
             inp = inp + self.choice_conv1x1(predict)
             if self.leak_choice:
@@ -929,35 +940,132 @@ def get_blockn(scalei):
     return blockn
 
 
-def get_class_embeding(classn=10, bit_each_channel=2, class0_is_zeros=True):
-    import math
+class ClassEmbeding(nn.Module):
+    def __init__(self, classn=10, bit_each_channel=2, class0_is_zeros=True):
+        super().__init__()
+        self.emb = self.get_class_embeding(
+            classn=classn,
+            bit_each_channel=bit_each_channel,
+            class0_is_zeros=class0_is_zeros,
+        ).requires_grad_(False)
+        self.classn = classn
+        self.emb_length = self.emb.shape[-1]
 
-    num_base = 1 << bit_each_channel
-    emb_length = int(math.log2(classn - 1) / bit_each_channel) + 1
-    emb = torch.zeros([classn, emb_length])
-    bits_to_v = dict(
-        zip(
-            [
-                ("0" * bit_each_channel + bin(i)[2:])[-bit_each_channel:]
-                for i in range(num_base)
-            ],
-            torch.linspace(-1, 1, num_base),
+    def __call__(self, label):
+        if label.dtype.is_floating_point:
+            label = label.argmax(-1)  # (b, n) one hot => (b,) long
+        label_embs = self.emb[label]  # (b, emb_length)
+        return label_embs
+        # label_embs_4dim = label_embs[...,None,None]  # (b, emb_length, 1, 1)
+
+    @staticmethod
+    def get_class_embeding(classn=10, bit_each_channel=2, class0_is_zeros=True):
+        import math
+
+        num_base = 1 << bit_each_channel
+        emb_length = int(math.log2(classn - 1) / bit_each_channel) + 1
+        emb = torch.zeros([classn, emb_length])
+        bits_to_v = dict(
+            zip(
+                [
+                    ("0" * bit_each_channel + bin(i)[2:])[-bit_each_channel:]
+                    for i in range(num_base)
+                ],
+                torch.linspace(-1, 1, num_base),
+            )
         )
-    )
-    for classi in range(classn):
-        if class0_is_zeros and classi == 0:  # skip class0, class0 as zereos
-            continue
-        bin_str = bin(classi)[2:]
-        bits = (emb_length * bit_each_channel - len(bin_str)) * "0" + bin_str
-        emb[classi] = torch.as_tensor(
-            [
-                bits_to_v[
-                    bits[i * bit_each_channel : i * bit_each_channel + bit_each_channel]
+        for classi in range(classn):
+            if class0_is_zeros and classi == 0:  # skip class0, class0 as zereos
+                continue
+            bin_str = bin(classi)[2:]
+            bits = (emb_length * bit_each_channel - len(bin_str)) * "0" + bin_str
+            emb[classi] = torch.as_tensor(
+                [
+                    bits_to_v[
+                        bits[
+                            i * bit_each_channel : i * bit_each_channel
+                            + bit_each_channel
+                        ]
+                    ]
+                    for i in range(emb_length)
                 ]
-                for i in range(emb_length)
-            ]
-        )
-    return emb
+            )
+        return emb  # (classn, emb_length)
+
+
+class ConditionProcess(nn.Module):
+    def __init__(self, condition_type=None, input_at="stage_begin"):
+        assert input_at in ["stage_begin", "every_level"], input_at
+        self.input_at = input_at
+        self.condition_type = condition_type
+        if condition_type == "edge":
+            self.sobel_kernel_horizontal = torch.tensor(
+                [[-1.0, 0.0, 1.0], [-2.0, 0.0, 2.0], [-1.0, 0.0, 1.0]]
+            )[None, None].requires_grad_(False)
+            self.sobel_kernel_vertical = torch.tensor(
+                [[1.0, 2.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -2.0, -1.0]]
+            )[None, None].requires_grad_(False)
+        if condition_type.startswith("class"):
+            self.classn = int(condition_type[len("class") :])
+            self.class_emb = ClassEmbeding(self.classn)
+
+    def init_dict(self, d):
+        ct = self.condition_type
+        if not ct or "condition" in d:
+            return d
+        dtype = d["feat_last"].dtype
+        with torch.no_grad():
+            condition_source = d.get("condition_source", d.get("target"))
+            # assert condition_source is not None or ct=="class", f"Condition type is {ct}, please provide condition_source"
+            d["condition"] = []
+            if ct.startswith("resize"):
+                self.resized_size = int(ct[len("resize") :])
+                h, w = condition_source.shape[-2:]
+                resized = nn.functional.interpolate(
+                    condition_source,
+                    (self.resized_size, self.resized_size),
+                    mode="area",
+                )
+                resize_back = nn.functional.interpolate(
+                    resized, (h, w), mode="bilinear"
+                )
+                d["condition"].append(resize_back)
+            if ct == "color":
+                d["condition"].append(condition_source.mean(-3, keepdim=True))
+            if ct == "edge":
+                grey = condition_source.mean(-3, keepdim=True)
+                output_horizontal = torch.nn.functional.conv2d(
+                    grey, self.sobel_kernel_horizontal
+                )
+                output_vertical = torch.nn.functional.conv2d(
+                    grey, self.sobel_kernel_vertical
+                )
+
+                magnitude = torch.sqrt(output_horizontal**2 + output_vertical**2)
+                edge = (magnitude > 1.5).to(dtpye)
+                # shows-[img,edges, cv2.Canny(img, 100, 200), edges>1.5]
+                d["condition"].append(edge)
+            if ct == "class":
+                # When to append conditions is better. Note class_emb could be empty when inference, so should add to last of conditions
+                class_emb_4dim = self.class_emb(d["label"])[
+                    ..., None, None
+                ]  # (b, emb_length, 1, 1)
+                d["condition"].append(class_emb_4dim)
+            d["condition"] = torch.cat([c[None] for c in d["condition"]]).to(dtype)
+        return d
+
+    def forward(self, d):
+        if self.input_at == "stage_begin":
+            if "last_level_size" not in d:
+                d = self.init_dict(d)
+            size = d["feat_last"].shape[-1]
+            if size != d.get("last_level_size"):
+                d["last_level_size"] = size
+                return nn.functional.interpolate(
+                    d["condition"], (size, size), mode="area"
+                )
+        else:
+            raise NotImplementedError()
 
 
 @persistence.persistent_class
@@ -1016,6 +1124,15 @@ class PHDDNHandsDense(
             init_zero=init_zero,
             init_attn=init_attn,
         )
+        self.label_dim = label_dim
+
+        condition_type = boxx.cf.get("kwargs", {}).get("condition")
+        if condition_type:
+            if condition_type == "class":
+                assert condition_type and label_dim, (condition_type, label_dim)
+                condition_type += str(label_dim)
+            self.condition_process = ConditionProcess(condition_type)
+        self.condition_type = condition_type
 
         self.scalen = int(np.log2(img_resolution))
 
@@ -1129,7 +1246,10 @@ class PHDDNHandsDense(
 
     def forward(self, d=None, _sigma=None, labels=None):
         # labels's shape (batch, class) of one hot (3, 10) of torch.cuda.FloatTensor @ cuda:0
-        # class0 = zeros, if not has lables, then condtion is class0
+        # class0 = zeros, if not has lables, then condition is class0
+        d = {} if d is None else d
+        if labels is not None:
+            d["label"] = labels
         for scalei in range(self.scalen + 1):
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
                 for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
@@ -1138,7 +1258,7 @@ class PHDDNHandsDense(
                         # skip first moule (up sample) when repeat
                         continue
                     module = getattr(self, name)
-                    d = module(d)
+                    d = module(d, condition_process=getattr(self, "condition_process"))
 
         feat = d["feat_last"]
         batch_size = feat.shape[0]
@@ -1149,7 +1269,7 @@ class PHDDNHandsDense(
             # print(d["noise_labels"])
             # print(d.get("augment_labels"))
             # print("repeati", repeati)
-            d = self.refiner(d)
+            d = self.refiner(d, condition_process=getattr(self, "condition_process"))
         # boxx.tree-d
         # print(repeati)
         return d

@@ -63,6 +63,14 @@ def parse_int_list(s):
     show_default=True,
 )
 @click.option(
+    "--condition",
+    help="Train conditional model with condition type",
+    metavar="class|color|edge|resize32|resize16",
+    type=str,
+    default=None,
+    show_default=True,
+)
+@click.option(
     "--arch",
     help="Network architecture",
     metavar="ddn|ddpmpp|ncsnpp|adm",
@@ -306,11 +314,12 @@ def main(**kwargs):
         --data=datasets/cifar10-32x32.zip --cond=1 --arch=ddpmpp
     """
     boxx.cf.kwargs = kwargs
-    # TODO default is True?
     import sddn
 
     sddn.DiscreteDistributionOutput.learn_residual = kwargs.get("learn_res")
 
+    if kwargs.get("condition") == "class":
+        kwargs["cond"] = True
     opts = dnnlib.EasyDict(kwargs)
     torch.multiprocessing.set_start_method("spawn", force=True)
     dist.init()
