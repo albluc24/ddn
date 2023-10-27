@@ -575,6 +575,7 @@ def main(
             net = torch.load(f)["net"].to(device)  # 会保存模型代码吗?
             net = net.eval()
 
+    boxx.mg()
     # Other ranks follow.
     if dist.get_rank() == 0:
         torch.distributed.barrier()
