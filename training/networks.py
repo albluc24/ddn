@@ -1059,7 +1059,7 @@ class ConditionProcess(torch.nn.Module):
                 magnitude = torch.sqrt(output_horizontal**2 + output_vertical**2)
                 thre = 0.75
                 if self.training:
-                    thre += random.random()/2-.25
+                    thre += random.random() / 2 - 0.25
                 edge = (magnitude > thre).to(dtype) * 2 - 1
                 # shows-[img,edges, cv2.Canny(img, 100, 200), edges>1.5]
                 d["condition"].append(edge)

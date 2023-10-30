@@ -534,7 +534,7 @@ def main(
         outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
     visp = (
-        network_pkl.replace(".pkl", "v.png").replace(".pt", "v.png")
+        (network_pkl + "$").replace(".pkl$", "v.png").replace(".pt$", "v.png")
         if outdir.endswith("/generate")
         else os.path.abspath(outdir) + "v.png"
     )
