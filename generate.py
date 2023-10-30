@@ -655,7 +655,7 @@ def main(
         print("Save vis to:", visp)
     dist.print0("Done.")
     if boxx.cf.debug:
-        sdd = net.model.blocks_32x32_1.ddo.sdd
+        sdd = net.model.block_32x32_1.ddo.sdd
         sdd.plot_dist()
     boxx.mg()
 
@@ -688,7 +688,8 @@ if __name__ == "__main__":
         main(
             [
                 "--seeds=0-8",
-                "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
+                # "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
+                "--network=../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl",
                 # "--network=cifar10-ddn.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
