@@ -206,7 +206,7 @@ def parse_int_list(s):
     help="Chain Dropout of DDN",
     metavar="FLOAT",
     type=click.FloatRange(min=0, max=1),
-    default=0,
+    default=0.05,
     show_default=True,
 )
 @click.option(
