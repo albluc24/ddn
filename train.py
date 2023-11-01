@@ -132,7 +132,7 @@ def parse_int_list(s):
     "--max-outputk",
     help="max output k of DDN",
     metavar="INT",
-    type=click.IntRange(min=3),
+    type=click.IntRange(min=2),
     default=8,
     show_default=True,
 )
