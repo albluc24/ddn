@@ -199,14 +199,23 @@ def copy_params_and_buffers(src_module, dst_module, require_all=False):
     for name, tensor in named_params_and_buffers(dst_module):
         assert (name in src_tensors) or (not require_all)
         if name in src_tensors:
-            tensor.copy_(src_tensors[name])
+            srct = src_tensors[name]
+            if tensor.shape == srct.shape:
+                tensor.copy_(src_tensors[name])
+            else:  # increase outputk for transfer learning 
+                for i in range(len(tensor)//len(srct)):
+                    tensor[i*len(srct):i*len(srct)+len(srct)] = srct
+                # __import__("boxx").tree([tensor, srct,tensor.mean(), srct.mean(),])
     # TODO sdd as buffer then remove
     dst_dic = dict(dst_module.named_modules())
     for src_submodule_name, src_submodule in src_module.named_modules():
         if hasattr(src_submodule, "sdd"):
             if src_submodule_name in dst_dic:
                 dst_submodule = dst_dic[src_submodule_name]
-                setattr(dst_submodule, "sdd", getattr(src_submodule, "sdd"))
+                if dst_submodule.sdd.k == src_submodule.sdd.k:
+                    setattr(dst_submodule, "sdd", getattr(src_submodule, "sdd"))
+                else:  # increase outputk for transfer learning 
+                    dst_submodule.sdd.split_start = dst_submodule.sdd.k*100
 
 
 # ----------------------------------------------------------------------------
