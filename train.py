@@ -540,24 +540,13 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     import sys
-    import boxx
-    from boxx.ylth import *
 
     sys.path.append(os.path.abspath("."))
-    args, argkv = boxx.getArgvDic()
-    cudan = torch.cuda.device_count()
-    debug = (
-        not cudan
-        or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
-    )
-    if "debug" in argkv:
-        debug = argkv["debug"]
-    if debug:
-        import training
-        import importlib
+    import boxx
+    from boxx.ylth import *
+    from ddn_utils import debug, argkv
 
-        # importlib.reload(torch.distributed)
-        torch.distributed.GroupMember.WORLD = None
+    if debug:
         boxx.cf.debug = True
         main(
             [

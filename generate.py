@@ -664,32 +664,22 @@ def main(
 
 if __name__ == "__main__":
     import sys
+
+    sys.path.append(os.path.abspath("."))
     import boxx
     from boxx.ylth import *
+    from ddn_utils import debug, argkv
 
-    torch.distributed.GroupMember.WORLD = None
-    sys.path.append(os.path.abspath("."))
-    args, argkv = boxx.getArgvDic()
-    cudan = torch.cuda.device_count()
-    debug = (
-        not cudan
-        or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
-    )
-    if argkv.get("debug"):
-        debug = True
     if not debug:
         main()
     else:
-        import training
-        import importlib
-
-        # importlib.reload(torch.distributed)
         boxx.cf.debug = True
         main(
             [
                 "--seeds=0-8",
                 # "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
-                "--network=../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl",
+                # "--network=../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl",
+                "--network=../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl",
                 # "--network=cifar10-ddn.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
