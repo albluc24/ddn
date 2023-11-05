@@ -514,7 +514,8 @@ def main(
     skip_exist=True,
     **sampler_kwargs,
 ):
-    """Generate random images using the techniques described in the paper
+    (
+        """Generate random images using the techniques described in the paper
     "Elucidating the Design Space of Diffusion-Based Generative Models".
 
     Examples:
@@ -529,6 +530,10 @@ def main(
     torchrun --standalone --nproc_per_node=2 generate.py --outdir=out --seeds=0-999 --batch=64 \\
         --network=https://nvlabs-fi-cdn.nvidia.com/edm/pretrained/edm-cifar10-32x32-cond-vp.pkl
     """
+        + """
+    If len(seeds) > 50000, will eval FID.
+    """
+    )
     network_pkl = network_pkl.replace("https://oss.iap.hh-d.brain" + "pp.cn/", "s3://")
     is_s3 = network_pkl.startswith("s3://")
     if outdir is None:
@@ -686,9 +691,11 @@ def main(
             kimg = ([-1] + boxx.findints(os.path.basename(network_pkl)))[-1]
             os.makedirs(eval_dir, exist_ok=True)
             tmp_tar = "/tmp/ddn.tar"
+            tar_path = os.path.join(eval_dir, "sample-example.tar")
+            print("Saving example to:", tar_path)
             boxx.zipTar(exampl_paths, tmp_tar)
             copy_file = lambda src, dst: open(dst, "wb").write(open(src, "rb").read())
-            copy_file(tmp_tar, os.path.join(eval_dir, "sample-example.tar"))
+            copy_file(tmp_tar, tar_path)
             copy_file(visp, os.path.join(eval_dir, f"vis{kimg}.png"))
 
             boxx.savejson(
