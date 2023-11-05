@@ -5,6 +5,9 @@
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 
+# import ddn_utils
+import boxx
+
 """Script for calculating Frechet Inception Distance (FID)."""
 
 import os
@@ -89,13 +92,14 @@ def calculate_inception_stats(
         features = detector_net(images.to(device), **detector_kwargs).to(torch.float64)
         mu += features.sum(0)
         sigma += features.T @ features
-
     # Calculate grand totals.
+    # if torch.distributed.get_world_size() > 1:
     torch.distributed.all_reduce(mu)
     torch.distributed.all_reduce(sigma)
     mu /= len(dataset_obj)
     sigma -= mu.ger(mu) * len(dataset_obj)
     sigma /= len(dataset_obj) - 1
+    boxx.mg()
     return mu.cpu().numpy(), sigma.cpu().numpy()
 
 
@@ -180,27 +184,35 @@ def main():
     show_default=True,
 )
 def calc(image_path, ref_path, num_expected, seed, batch):
-    """Calculate FID for a given set of images."""
-    torch.multiprocessing.set_start_method("spawn")
+    torch.multiprocessing.set_start_method("spawn", force=True)
     dist.init()
+    return calc_fid(image_path, ref_path, num_expected, seed, batch)
+
+
+def calc_fid(image_path, ref_path, num_expected=50000, seed=0, batch=64):
+    """Calculate FID for a given set of images."""
 
     dist.print0(f'Loading dataset reference statistics from "{ref_path}"...')
     ref = None
     if dist.get_rank() == 0:
         with dnnlib.util.open_url(ref_path) as f:
             ref = dict(np.load(f))
-
     mu, sigma = calculate_inception_stats(
         image_path=image_path,
         num_expected=num_expected,
         seed=seed,
         max_batch_size=batch,
     )
+    # reff = ref
+    # boxx.g()/0
     dist.print0("Calculating FID...")
     if dist.get_rank() == 0:
         fid = calculate_fid_from_inception_stats(mu, sigma, ref["mu"], ref["sigma"])
         print(f"{fid:g}")
     torch.distributed.barrier()
+    boxx.mg()
+    if dist.get_rank() == 0:
+        return dict(fid=fid, mu=mu, sigma=sigma)
 
 
 # ----------------------------------------------------------------------------
@@ -250,6 +262,23 @@ def ref(dataset_path, dest_path, batch):
 # ----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    sys.path.append(os.path.abspath("."))
+    from boxx.ylth import *
+    from ddn_utils import debug, argkv
+
+    if debug:
+        main(
+            [
+                "calc",
+                "--images=/tmp/gen_ddn",
+                "--ref=fid-refs/cifar10-32x32.npz",
+                "--num=800",
+                "--batch=2",
+            ]
+        )
+    else:
+        main()
 
 # ----------------------------------------------------------------------------

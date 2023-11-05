@@ -530,18 +530,31 @@ def main(
         --network=https://nvlabs-fi-cdn.nvidia.com/edm/pretrained/edm-cifar10-32x32-cond-vp.pkl
     """
     network_pkl = network_pkl.replace("https://oss.iap.hh-d.brain" + "pp.cn/", "s3://")
+    is_s3 = network_pkl.startswith("s3://")
     if outdir is None:
-        outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
+        if is_s3:
+            outdir = "/tmp/generate"
+        else:
+            outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
     visp = (
         (network_pkl + "$").replace(".pkl$", "v.png").replace(".pt$", "v.png")
         if outdir.endswith("/generate")
-        else os.path.abspath(outdir) + "v.png"
+        else os.path.abspath(outdir) + "-v.png"
     )
+    eval_dir = visp[:-5]
+    fid_path = os.path.join(eval_dir, "fid.json")
     if skip_exist is None:
-        skip_exist = len(seeds) in [100]
-    if skip_exist and os.path.exists(visp):
-        print("Vis exists:", visp)
+        skip_exist = len(seeds) in [100, 50000]
+
+    dist.init()
+    if (
+        skip_exist
+        and (os.path.exists(visp) and len(seeds) == 100)
+        or (os.path.exists(fid_path) and len(seeds) == 50000)
+    ):
+        if torch.distributed.get_rank() == 0:
+            print("Vis exists:", visp)
         return
 
     dirr = os.path.dirname(network_pkl)
@@ -555,7 +568,6 @@ def main(
             )
         sddn.DiscreteDistributionOutput.learn_residual = learn_res
 
-    dist.init()
     num_batches = (
         (len(seeds) - 1) // (max_batch_size * dist.get_world_size()) + 1
     ) * dist.get_world_size()
@@ -646,13 +658,53 @@ def main(
     torch.distributed.barrier()
     if dist.get_rank() == 0 and len(seeds) >= 4:
         # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'.png', np.concatenate(np.concatenate(arrs,2), 0))"
-        vis = npa(
-            [imread(pa) for pa in glob(outdir + "/**/*.??g", recursive=True)[:100]]
-        )
+        exampl_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
+        vis = npa([imread(pa) for pa in exampl_paths])
         vis_side = int(len(vis) ** 0.5)
         vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
         boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
         print("Save vis to:", visp)
+
+    if len(seeds) >= 50000:  # or boxx.cf.debug:
+        import fid
+
+        ref_path = "fid-refs/cifar10-32x32.npz"
+        if boxx.cf.kwargs:
+            ref_path = (
+                boxx.cf.kwargs["data"].replace("datasets/", "fid-refs/")[:-3] + "npz"
+            )
+        fid_argkws = dict(
+            ref_path=ref_path,
+            image_path=outdir,
+            num_expected=min(len(seeds), 50000),
+            seed=0,
+            batch=max_batch_size,
+        )
+        dist.print0("fid_argkws:", fid_argkws)
+        fid = fid.calc_fid(**fid_argkws)
+        if dist.get_rank() == 0:
+            kimg = ([-1] + boxx.findints(os.path.basename(network_pkl)))[-1]
+            os.makedirs(eval_dir, exist_ok=True)
+            tmp_tar = "/tmp/ddn.tar"
+            boxx.zipTar(exampl_paths, tmp_tar)
+            copy_file = lambda src, dst: open(dst, "wb").write(open(src, "rb").read())
+            copy_file(tmp_tar, os.path.join(eval_dir, "sample-example.tar"))
+            copy_file(visp, os.path.join(eval_dir, f"vis{kimg}.png"))
+
+            boxx.savejson(
+                dict(
+                    fid=fid["fid"],
+                    path=network_pkl,
+                    kimg=kimg,
+                    kwargs=boxx.cf.kwargs,
+                    fid_argkws=fid_argkws,
+                ),
+                fid_path,
+            )
+            boxx.savejson(
+                dict(fid=fid["fid"], path=network_pkl, kimg=kimg),
+                os.path.join(eval_dir, "fid-%.3f" % fid["fid"]),
+            )
     dist.print0("Done.")
     if boxx.cf.debug:
         sdd = net.model.block_32x32_1.ddo.sdd
@@ -666,6 +718,7 @@ if __name__ == "__main__":
     import sys
 
     sys.path.append(os.path.abspath("."))
+    torch.distributed.GroupMember.WORLD = None
     import boxx
     from boxx.ylth import *
     from ddn_utils import debug, argkv

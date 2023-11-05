@@ -12,10 +12,12 @@ import sys
 import boxx
 import torch
 
-torch.distributed.GroupMember.WORLD = None
 sys.path.append(os.path.abspath("."))
-args, argkv = boxx.getArgvDic()
 cudan = torch.cuda.device_count()
+if cudan <= 1:
+    args, argkv = boxx.getArgvDic()
+else:
+    argkv = {}
 debug = (
     not cudan or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
 )
