@@ -959,7 +959,7 @@ class ClassEmbeding(torch.nn.Module):
     def __call__(self, label):
         if label.dtype.is_floating_point:
             label = label.argmax(-1)  # (b, n) one hot => (b,) long
-        label_embs = self.emb[label]  # (b, emb_length)
+        label_embs = self.emb.to(label.device)[label]  # (b, emb_length)
         return label_embs
         # label_embs_4dim = label_embs[...,None,None]  # (b, emb_length, 1, 1)
 
