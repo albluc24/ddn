@@ -39,7 +39,11 @@ def ddn_sampler(
     d = {"batch_size": len(latents)}
     if "batch_seeds" in kwargs:
         total_output_level = kwargs.get("total_output_level", 2000)
-        d["idx_ks"] = torch.cat(
+        d["batch_seeds"] = d["idx_gens"] =  kwargs["batch_seeds"]
+        if "sampler" in kwargs:
+            d["sampler"]= kwargs["sampler"]
+        else:
+            d["idx_ks"] = torch.cat(
             [
                 torch.rand(
                     total_output_level, 1, generator=torch.Generator().manual_seed(seed)
@@ -538,7 +542,7 @@ def main(
     is_s3 = network_pkl.startswith("s3://")
     if outdir is None:
         if is_s3:
-            outdir = "/tmp/generate"
+            outdir = "/run/generate"
         else:
             outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
@@ -597,6 +601,13 @@ def main(
     if dist.get_rank() == 0:
         torch.distributed.barrier()
 
+    cifar_pretrain_sampler = False
+    # cifar_pretrain_sampler = True
+    if cifar_pretrain_sampler:
+        from zero_condition.main import CifarSampler,BatchedGuidedSampler
+        sampler = CifarSampler(None)
+        print("CifarSampler!!!")
+        batch_sampler = BatchedGuidedSampler(sampler)
     # Loop over batches.
     dist.print0(f'Generating {len(seeds)} images to "{outdir}"...')
     for batch_seeds in tqdm.tqdm(
@@ -634,6 +645,9 @@ def main(
         if sampler_kwargs.get("discretization", "ddn") == "ddn":
             sampler_fn = ddn_sampler
             sampler_kwargs["batch_seeds"] = batch_seeds
+            if cifar_pretrain_sampler:
+                sampler_kwargs["sampler"] = batch_sampler
+                        
         images = sampler_fn(
             net, latents, class_labels, randn_like=rnd.randn_like, **sampler_kwargs
         )
@@ -690,7 +704,7 @@ def main(
         if dist.get_rank() == 0:
             kimg = ([-1] + boxx.findints(os.path.basename(network_pkl)))[-1]
             os.makedirs(eval_dir, exist_ok=True)
-            tmp_tar = "/tmp/ddn.tar"
+            tmp_tar = "/run/ddn.tar"
             tar_path = os.path.join(eval_dir, "sample-example.tar")
             print("Saving example to:", tar_path)
             boxx.zipTar(exampl_paths, tmp_tar)
