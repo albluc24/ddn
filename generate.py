@@ -39,19 +39,21 @@ def ddn_sampler(
     d = {"batch_size": len(latents)}
     if "batch_seeds" in kwargs:
         total_output_level = kwargs.get("total_output_level", 2000)
-        d["batch_seeds"] = d["idx_gens"] =  kwargs["batch_seeds"]
+        d["batch_seeds"] = d["idx_gens"] = kwargs["batch_seeds"]
         if "sampler" in kwargs:
-            d["sampler"]= kwargs["sampler"]
+            d["sampler"] = kwargs["sampler"]
         else:
             d["idx_ks"] = torch.cat(
-            [
-                torch.rand(
-                    total_output_level, 1, generator=torch.Generator().manual_seed(seed)
-                )
-                for seed in kwargs["batch_seeds"].tolist()
-            ],
-            -1,
-        )
+                [
+                    torch.rand(
+                        total_output_level,
+                        1,
+                        generator=torch.Generator().manual_seed(seed),
+                    )
+                    for seed in kwargs["batch_seeds"].tolist()
+                ],
+                -1,
+            )
     with torch.no_grad():
         d = net(d, None, class_labels)
     kwargs["total_output_level"] = d.get("output_level", -2) + 1
@@ -604,7 +606,8 @@ def main(
     cifar_pretrain_sampler = False
     # cifar_pretrain_sampler = True
     if cifar_pretrain_sampler:
-        from zero_condition.main import CifarSampler,BatchedGuidedSampler
+        from zero_condition.main import CifarSampler, BatchedGuidedSampler
+
         sampler = CifarSampler(None)
         print("CifarSampler!!!")
         batch_sampler = BatchedGuidedSampler(sampler)
@@ -647,7 +650,7 @@ def main(
             sampler_kwargs["batch_seeds"] = batch_seeds
             if cifar_pretrain_sampler:
                 sampler_kwargs["sampler"] = batch_sampler
-                        
+
         images = sampler_fn(
             net, latents, class_labels, randn_like=rnd.randn_like, **sampler_kwargs
         )
