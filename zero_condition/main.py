@@ -17,6 +17,17 @@ with boxx.inpkg(), boxx.impt(".."):
     import torch_utils, dnnlib
 
 
+def topk_sample(probs, topk):
+    if isinstance(topk, float):
+        topk = max(1, int(round(len(probs) * topk)))
+    module = torch if isinstance(probs, torch.Tensor) else np
+    args = module.argsort(
+        probs,
+    )
+    idx_k = int(random.choice(args[-topk:]))
+    return idx_k
+
+
 class L2Sampler:
     def __init__(self, target):
         self.raw = target
@@ -83,28 +94,28 @@ class L2MaskedSampler:
         h, w = target.shape[-2:]
         if isinstance(mask, int):
             mask_ = torch.zeros((h, w)) > 0
-            if mask == 0:
+            if mask == 0:  # r
                 mask_[:, : w // 2] = 1
-            if mask == 1:
+            if mask == 1:  # d
                 mask_[: h // 2] = 1
-            if mask == 2:
+            if mask == 2:  # u
                 mask_[h // 2 :] = 1
-            if mask == 3:
+            if mask == 3:  # checkboard
                 mask_[: h // 2, : w // 2] = 1
                 mask_[h // 2 :, w // 2 :] = 1
-            if mask == 4:
+            if mask == 4:  # ~eyes
                 mask_[h * 2 // 5 : h * 5 // 9] = 1
-            if mask == 5:
+            if mask == 5:  # ~cross
                 mask_[h * 2 // 5 : h * 5 // 9] = 1
                 mask_[:, w * 2 // 5 : w * 3 // 5] = 1
-            if mask == 6:
+            if mask == 6:  # ~center crop
                 mask_[
                     h // 4 : h * 3 // 4,
                     w // 4 : w * 3 // 4,
                 ] = 1
-            if mask == 7:
+            if mask == 7:  # ~ mask s
                 mask_ = get_mask_s((h, w))
-            if mask == 8:
+            if mask == 8:  # mask s
                 mask_ = ~get_mask_s((h, w))
             mask = mask_
         self.mask = mask.cuda()
@@ -126,7 +137,7 @@ class L2MaskedSampler:
         )
         return dict(
             probs=probs,
-            idx_k=int(probs.argmax()),
+            idx_k=topk_sample(probs, 2),
             condition=self.target,
             condition_source=self.raw,
         )
@@ -155,9 +166,10 @@ class ColorfulSampler:
         resized = nn.functional.interpolate(self.target, (h, w), mode="area")
         rgbs = rgbs.mean(-3, keepdims=True)
         probs = nn.functional.softmax(-((rgbs - resized) ** 2).mean([-1, -2, -3]), 0)
+
         return dict(
             probs=probs,
-            idx_k=int(probs.argmax()),
+            idx_k=topk_sample(probs, 2),
             condition=self.target,
             condition_source=self.raw,
         )
@@ -178,7 +190,7 @@ class SuperResSampler:
         )
         return dict(
             probs=probs,
-            idx_k=int(probs.argmax()),
+            idx_k=topk_sample(probs, 2),
             condition=self.target,
             condition_source=self.raw,
         )
@@ -233,7 +245,7 @@ class CannySampler:
         # probs = F.softmax(torch.tensor((target_resized[None] == resized_imgs).sum(-1).sum(-1).astype(np.float32)), 0)
         return dict(
             probs=probs,
-            idx_k=int(probs.argmax()),
+            idx_k=topk_sample(probs, 2),
             condition=self.target,
             condition_source=self.raw,
         )
@@ -326,7 +338,7 @@ class EdgeSampler:
             .mean(-1)
         )
         # probs = - probs
-        idx_k = int(probs.argmax())
+        idx_k = topk_sample(probs, 2)
         g()
         if not increase("edge show") % 8:
             show(resized_imgs[:1], rgbs[:1], t2rgb)
@@ -399,20 +411,10 @@ class StyleTransfer:
         probs = nn.functional.softmax(-((self.target - feats) ** 2).mean([-1]), 0)
         return dict(
             probs=probs,
-            idx_k=int(probs.argmax()),
+            idx_k=topk_sample(probs, 2),
             condition=self.target,
             condition_source=self.raw,
         )
-
-
-def topk_sample(probs, topk):
-    if isinstance(topk, float):
-        topk = max(1, int(round(len(probs) * topk)))
-    args = torch.argsort(
-        probs,
-    )
-    idx_k = int(random.choice(args[-topk:]))
-    return idx_k
 
 
 class CifarSampler:
@@ -495,7 +497,7 @@ classi2name = {
 if __name__ == "__main__":
 
     datapath = "../../asset/outputs-cifar.pt"
-    # datapath = "../../asset/outputs-ffhq64.pt"
+    datapath = "../../asset/outputs-ffhq64.pt"
     train_imgs = torch.load(datapath).cuda()
 
     pklp = "../../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl"
@@ -511,29 +513,32 @@ if __name__ == "__main__":
 
     net = sys._getframe(3).f_globals.get("net")
     if net is None:
-        print("load_net")
+        print("load net....")
         net = load_net(pklp)
 
     train_imgs_xflip = tht(npa(train_imgs)[..., ::-1].copy()).cuda()
     train_idx = 1
     if 1:
         pass
-    for train_idx in range(3):
+        # for train_idx in range(3):
         target = train_imgs[train_idx]
-        # target = train_imgs_xflip[train_idx]
+        target = train_imgs_xflip[train_idx]
         # save_data(d["predict"], "/tmp/predict-as-target")
         # target = load_data("/tmp/predict-as-target")[0]
         dt = dict(target=target[None])
 
+    for i in range(3):
+        pass
         # sampler = L2Sampler(target)
         # sampler = L1Sampler(target)
         # sampler = ColorfulSampler(target)
-        # sampler = SuperResSampler(target, .25)
+        # sampler = SuperResSampler(target, 1/8)
         # sampler = NoiseSampler(target)
         # sampler = LowBitSampler(target)
-        # maski = 8
-        # for maski in range(7):
-        # sampler = L2MaskedSampler(target, maski)
+    #     maski = 7
+    for maski in range(9):
+        sampler = L2MaskedSampler(target, maski)
+        # Canny 和 Edge 效果不好
         # sampler = CannySampler(target, )
         # sampler = EdgeSampler(target, )
         # sampler = StyleTransfer(target, )
@@ -541,19 +546,19 @@ if __name__ == "__main__":
         classi = 8
 
         # for classi in range(10):
-        sampler = CifarSampler(classi)
+        # sampler = CifarSampler(classi)
 
         batch_sampler = BatchedGuidedSampler(sampler)
         d = dict(sampler=batch_sampler)
         d = net(d)
         # tree-d
-
-        print(
-            classi,
-            classi2name.get(classi, "None"),
-            "class:",
-            sampler.model(d["predict"]).max(1)[1].item(),
-        )
+        if isinstance(sampler, CifarSampler):
+            print(
+                classi,
+                classi2name.get(classi, "None"),
+                "class:",
+                sampler.model(d["predict"]).max(1)[1].item(),
+            )
 
         showd(d, 1, figsize=(8, 5) if target.shape[-1] >= 40 else (4, 3))
 
