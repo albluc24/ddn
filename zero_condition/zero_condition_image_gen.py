@@ -27,15 +27,20 @@ if __name__ == "__main__":
 
     imgps = sorted(glob(os.path.expanduser(img_glob)))
     os.makedirs(outputdir, exist_ok=True)
-    for imgp in imgps:
+    for imgp in imgps[:]:
         fname = filename(imgp)
+        if fname not in [
+            "00144",
+            "00002",
+            "00136",
+            "00149",
+        ]:
+            continue
         img = boxx.imread(imgp)
-        target = (img / 255) * 2 - 1
-        target = target.transpose(2, 0, 1)
-        target = torch.from_numpy(target).cuda().float()
+        target = uint8_to_tensor(img)
         target = nn.functional.interpolate(target[None], target_shape, mode="area")[0]
         samplers = {
-            "01recon": lambda: L2Sampler(target),
+            "01reconstruction": lambda: L2Sampler(target),
             "02sr.f2": lambda: SuperResSampler(target, 1 / 2),
             "03sr.f4": lambda: SuperResSampler(target, 1 / 4),
             "04sr.f8": lambda: SuperResSampler(target, 1 / 8),
@@ -52,20 +57,36 @@ if __name__ == "__main__":
             ),
         }
         for sampler_name in samplers:
-            print(sampler_name)
             sampler = samplers[sampler_name]()
             batch_sampler = BatchedGuidedSampler(sampler)
             for condidat_idx in range(condidat_num):
                 d = dict(sampler=batch_sampler)
                 d = net(d)
-                showd(d, 1, figsize=(8, 5) if target.shape[-1] >= 40 else (4, 3))
                 res = t2rgb(npa(d["predict"][0]))
                 target_path = pathjoin(
-                    outputdir, f"{fname}_{sampler_name}_{condidat_idx:03}.png"
+                    outputdir, f"{fname}_{sampler_name}_{condidat_idx+1:03}.png"
                 )
                 boxx.imsave(target_path, res)
-            # if "condition" in d
+                if sampler_name == "01reconstruction":
+                    break
+            if boxx.sysi.gui:
+                print(sampler_name)
+                showd(d, 1, figsize=(8, 5) if target.shape[-1] >= 40 else (4, 3))
+            if "condition0" in d:
+                if d["condition0"][0].ndim == 4:
+                    target_path = pathjoin(
+                        outputdir, f"{fname}_{sampler_name}_{0:03}.png"
+                    )
+                    target_ = d["condition0"][0][0]
+                    if target_.shape[-1] != target_shape[-1]:
+                        target_ = nn.functional.interpolate(
+                            target_[None], target_shape, mode="nearest"
+                        )[0]
+                    res = t2rgb(npa(target_))
+                    boxx.imsave(target_path, res.squeeze())
+            # break
+
         # show(target, t2rgb)
         # show(img)
-        print("All save to")
-        break
+        # break
+    print("All save to:", target_path)

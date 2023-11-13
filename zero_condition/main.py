@@ -41,8 +41,8 @@ class L2Sampler:
         return dict(
             probs=probs,
             idx_k=int(probs.argmax()),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
@@ -57,8 +57,8 @@ class L1Sampler(L2Sampler):
         return dict(
             probs=probs,
             idx_k=int(probs.argmax()),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
@@ -138,8 +138,8 @@ class L2MaskedSampler:
         return dict(
             probs=probs,
             idx_k=topk_sample(probs, 2),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
@@ -148,11 +148,53 @@ class NoiseSampler(L2Sampler):
         self.raw = target
         self.target = target[None] + torch.randn_like(target)[None] * noise_rate
 
+    def __call__(self, dic):
+        rgbs = dic["rgbs"]
+        k, c, h, w = rgbs.shape
+        resized = nn.functional.interpolate(self.target, (h, w), mode="area")
+        probs = nn.functional.softmax(-((rgbs - resized) ** 2).mean([-1, -2, -3]), 0)
+        return dict(
+            probs=probs,
+            idx_k=topk_sample(probs, 2),
+            condition0=self.target,
+            condition_source0=self.raw,
+        )
+
 
 class LowBitSampler(L2Sampler):
     def __init__(self, target, brightnessn=4):
         self.raw = target
-        self.target = ((target[None]) * brightnessn / 2).round() * 2 / brightnessn
+        self.f = lambda x: ((x) * brightnessn / 2).round() * 2 / brightnessn
+        self.target = self.f(target[None])
+
+    def __call__(self, dic):
+        rgbs = dic["rgbs"]
+        k, c, h, w = rgbs.shape
+        resized = nn.functional.interpolate(self.target, (h, w), mode="area")
+        probs = nn.functional.softmax(-((rgbs - resized) ** 2).mean([-1, -2, -3]), 0)
+        return dict(
+            probs=probs,
+            idx_k=topk_sample(probs, 2),
+            condition0=self.target,
+            condition_source0=self.raw,
+        )
+
+    def __call__2(self, dic):
+        rgbs = dic["rgbs"]
+        k, c, h, w = rgbs.shape
+        # resized = nn.functional.interpolate(self.target, (h, w), mode="area")
+        hh, ww = self.target.shape[-2:]
+        resized = self.target
+        rgbs = nn.functional.interpolate(rgbs, (hh, ww), mode="nearest")
+        probs = nn.functional.softmax(
+            -((self.f(rgbs) - resized) ** 2).mean([-1, -2, -3]), 0
+        )
+        return dict(
+            probs=probs,
+            idx_k=topk_sample(probs, 2),
+            condition0=self.target,
+            condition_source0=self.raw,
+        )
 
 
 class ColorfulSampler:
@@ -170,8 +212,8 @@ class ColorfulSampler:
         return dict(
             probs=probs,
             idx_k=topk_sample(probs, 2),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
@@ -191,8 +233,8 @@ class SuperResSampler:
         return dict(
             probs=probs,
             idx_k=topk_sample(probs, 2),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
@@ -246,8 +288,8 @@ class CannySampler:
         return dict(
             probs=probs,
             idx_k=topk_sample(probs, 2),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
@@ -345,8 +387,8 @@ class EdgeSampler:
         return dict(
             probs=probs,
             idx_k=idx_k,
-            condition=self.target,
-            condition_source=resized_imgs[0],
+            condition0=self.target,
+            condition_source0=resized_imgs[0],
         )
 
 
@@ -412,17 +454,18 @@ class StyleTransfer:
         return dict(
             probs=probs,
             idx_k=topk_sample(probs, 2),
-            condition=self.target,
-            condition_source=self.raw,
+            condition0=self.target,
+            condition_source0=self.raw,
         )
 
 
 class CifarSampler:
-    def __init__(self, target=None):
+    def __init__(self, target=None, entropy=False):
         with impt("../../asset/resnet_cifar_zhk"):
             from cifar_pretrain import CifarPretrain
         self.model = CifarPretrain()  # rgbs => (k, 10) feat
         self.target = target
+        self.entropy = entropy
 
     def __call__(self, dic):
         rgbs = dic["rgbs"]
@@ -435,12 +478,16 @@ class CifarSampler:
             if "idx_gen" in dic:
                 target = int(dic["idx_gen"] % 10)
                 # print(target, dic["idx_gen"])
+        topk = 0.1
+        if self.entropy:
+            target = None
+            topk = 2
         if target is None:
             probs = class_probs.max(1)[0]
         else:
             probs = class_probs[:, target]
 
-        idx_k = topk_sample(probs, 0.1)
+        idx_k = topk_sample(probs, topk)
         mg()
         # if random.random() < 1.5 and h<=9:
         # if random.random() < 1.5 and h<=7:
@@ -452,7 +499,61 @@ class CifarSampler:
         return dict(
             probs=probs,
             idx_k=idx_k,
-            condition=target,
+            condition0=target,
+        )
+
+
+class ReconstructionDatasetSampler:
+    def __init__(
+        self,
+        dataset=None,
+    ):
+        """
+        dataset[k] will return one h,w,3 RGB numpy image
+        """
+        if dataset is None:
+
+            class CIFAR10Uint8(torchvision.datasets.cifar.CIFAR10):
+                def __getitem__(self, idx):
+                    pil, label = super().__getitem__(idx % 10000)
+                    return np.array(pil)
+
+            dataset = CIFAR10Uint8(
+                os.path.expanduser("~/dataset"),
+                train=False,
+                # download=True,
+            )
+        self.dataset = dataset
+
+    def __call__(self, dic):
+        rgbs = dic["rgbs"]
+        k, c, h, w = rgbs.shape
+        if "idx_gen" in dic:
+            data_idx = int(dic["idx_gen"])
+        else:
+            data_idx = random.randint(0, len(self.dataset) - 1)
+        if "sampler_context" not in dic:
+            img = self.dataset[data_idx % len(self.dataset)]
+            if isinstance(img, tuple):
+                img = img[0]
+            if img.shape[-1] > 3 and img.shape[-3] <= 3:
+                img = img.transpose(1, 2, 0)
+            # show-img
+            context = dict(
+                target=uint8_to_tensor(img)[None],
+                data_idx=data_idx,
+            )
+        else:
+            context = dic["sampler_context"]
+
+        resized = nn.functional.interpolate(context["target"], (h, w), mode="area")
+        probs = nn.functional.softmax(-((rgbs - resized) ** 2).mean([-1, -2, -3]), 0)
+        return dict(
+            probs=probs,
+            idx_k=int(probs.argmax()),
+            condition0=context["target"],
+            # condition_source0=target,
+            sampler_context=context,
         )
 
 
@@ -469,16 +570,20 @@ class BatchedGuidedSampler:
             input_dic = dict(rgbs=outputs[batchi])
             if "idx_gens" in d:
                 input_dic["idx_gen"] = d["idx_gens"][batchi]
+            if "sampler_contexts" in d:
+                input_dic["sampler_context"] = d["sampler_contexts"][batchi]
             dic = self.sampler(input_dic)
             dics.append(dic)
         if "idx_k" in dic:
             idx_ks = [dic["idx_k"] for dic in dics]
         elif "probs" in dic:
             idx_ks = npa([np.argmax(dic["probs"]) for dic in dics])
-        if "condition_source" in dic:
-            d["condition_source"] = dic["condition_source"]
-        if "condition" in dic:
-            d["condition"] = dic["condition"]
+        if "condition_source0" in dic:
+            d["condition_source0"] = [dic["condition_source0"] for dic in dics]
+        if "condition0" in dic:
+            d["condition0"] = [dic["condition0"] for dic in dics]
+        if "sampler_context" in dic:
+            d["sampler_contexts"] = [dic["sampler_context"] for dic in dics]
         return npa(idx_ks)
 
 
@@ -497,7 +602,7 @@ classi2name = {
 if __name__ == "__main__":
 
     datapath = "../../asset/outputs-cifar.pt"
-    datapath = "../../asset/outputs-ffhq64.pt"
+    # datapath = "../../asset/outputs-ffhq64.pt"
     train_imgs = torch.load(datapath).cuda()
 
     pklp = "../../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl"
@@ -522,7 +627,7 @@ if __name__ == "__main__":
         pass
         # for train_idx in range(3):
         target = train_imgs[train_idx]
-        target = train_imgs_xflip[train_idx]
+        # target = train_imgs_xflip[train_idx]
         # save_data(d["predict"], "/tmp/predict-as-target")
         # target = load_data("/tmp/predict-as-target")[0]
         dt = dict(target=target[None])
@@ -535,9 +640,9 @@ if __name__ == "__main__":
         # sampler = SuperResSampler(target, 1/8)
         # sampler = NoiseSampler(target)
         # sampler = LowBitSampler(target)
-    #     maski = 7
-    for maski in range(9):
-        sampler = L2MaskedSampler(target, maski)
+        #     maski = 7
+        # for maski in range(9):
+        #     sampler = L2MaskedSampler(target, maski)
         # Canny 和 Edge 效果不好
         # sampler = CannySampler(target, )
         # sampler = EdgeSampler(target, )
@@ -547,9 +652,12 @@ if __name__ == "__main__":
 
         # for classi in range(10):
         # sampler = CifarSampler(classi)
+        sampler = CifarSampler(entropy=True)
+        # sampler = ReconstructionDatasetSampler()
 
         batch_sampler = BatchedGuidedSampler(sampler)
         d = dict(sampler=batch_sampler)
+        # d["idx_gens"] = [0]
         d = net(d)
         # tree-d
         if isinstance(sampler, CifarSampler):

@@ -28,13 +28,23 @@ if argkv.get("debug"):
 
 from boxx import tprgb, show, np, npa
 
-t2rgb = lambda x: (tprgb(npa(x)) * 127.5 + 128).clip(0, 255).astype(np.uint8)
+
+def uint8_to_tensor(img):
+    target = (img / 255) * 2 - 1
+    target = target.transpose(2, 0, 1)
+    target = torch.from_numpy(target).cuda().float()
+    return target
+
+
+t2rgb = lambda x: (tprgb(npa(x)) * 127.5 + 127.5).clip(0, 255).astype(np.uint8)
 showd = lambda d_, no_predicts=False, **kv: show(
     None if no_predicts else d_.get("predicts", [])[2:],
-    d_.get("target"),
-    d_["predict"],
     d_.get("condition"),
+    d_.get("condition0"),
+    d_["predict"],
+    d_.get("target"),
     d_.get("condition_source"),
+    d_.get("condition_source0"),
     t2rgb,
     **kv,
 )

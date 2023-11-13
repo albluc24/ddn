@@ -5,6 +5,7 @@
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 import ddn_utils
+from ddn_utils import *
 import boxx
 import sddn
 
@@ -20,11 +21,10 @@ import torch
 import PIL.Image
 import dnnlib
 from torch_utils import distributed as dist
+import training.dataset
 
 # ----------------------------------------------------------------------------
 # Proposed EDM sampler (Algorithm 2).
-
-t2rgb = lambda x: (tprgb(x) * 127.5 + 128).clip(0, 255).astype(np.uint8)
 
 
 def ddn_sampler(
@@ -59,10 +59,7 @@ def ddn_sampler(
     kwargs["total_output_level"] = d.get("output_level", -2) + 1
     boxx.mg()
     if boxx.cf.debug:
-        show(
-            d["predict"],
-            t2rgb,
-        )
+        showd(d, 1)
     return d["predict"]
 
 
@@ -508,6 +505,12 @@ def parse_int_list(s):
     default=None,
     show_default=True,
 )
+@click.option(
+    "--sampler",
+    help="Guided sampler",
+    default=None,
+    type=click.Choice(["none", "train", "test", "class", "xflip", "entropy"]),
+)
 def main(
     network_pkl,
     outdir,
@@ -518,6 +521,7 @@ def main(
     device=torch.device("cuda"),
     learn_res=None,
     skip_exist=True,
+    sampler=None,
     **sampler_kwargs,
 ):
     (
@@ -554,7 +558,10 @@ def main(
         else os.path.abspath(outdir) + "-v.png"
     )
     eval_dir = visp[:-5]
-    fid_path = os.path.join(eval_dir, "fid.json")
+
+    sampler_cmd = "" if (sampler is None or sampler == "none") else sampler
+    sampler_prefix = sampler_cmd and (f"sampler.{sampler_cmd}-")
+    fid_path = os.path.join(eval_dir, sampler_prefix + "fid.json")
     if skip_exist is None:
         skip_exist = len(seeds) in [100, 50000]
 
@@ -603,13 +610,43 @@ def main(
     if dist.get_rank() == 0:
         torch.distributed.barrier()
 
-    cifar_pretrain_sampler = False
-    # cifar_pretrain_sampler = True
-    if cifar_pretrain_sampler:
-        from zero_condition.main import CifarSampler, BatchedGuidedSampler
+    if sampler_cmd:
+        from zero_condition.main import (
+            ReconstructionDatasetSampler,
+            CifarSampler,
+            BatchedGuidedSampler,
+        )
 
-        sampler = CifarSampler(None)
-        print("CifarSampler!!!")
+        if sampler_cmd == "class":
+            sampler = CifarSampler(None)
+            print("CifarSampler!!!")
+        if sampler_cmd == "entropy":
+            sampler = CifarSampler(entropy=True)
+            print("CifarSampler(entropy=True)!!!")
+        if sampler_cmd in ["train", "test"]:
+            assert os.path.exists(training_options_json), training_options_json
+            # or boxx.cf.debug
+            # if boxx.cf.debug:
+            #
+            # elif
+            data_kwargs = train_kwargs["dataset_kwargs"]
+            if "cifar" in data_kwargs["path"] and sampler_cmd == "test":
+                dataset_guided = None
+            else:
+                if sampler_cmd == "test":
+                    if "ffhq" in data_kwargs["path"]:
+                        data_kwargs["path"] = data_kwargs["path"].replace(
+                            "ffhq", "celebahq"
+                        )
+                    if "celebahq" in data_kwargs["path"]:
+                        data_kwargs["path"] = data_kwargs["path"].replace(
+                            "celebahq", "ffhq"
+                        )
+                # from training import training_loop
+
+                dataset_guided = dnnlib.util.construct_class_by_name(**data_kwargs)
+            sampler = ReconstructionDatasetSampler(dataset_guided)
+
         batch_sampler = BatchedGuidedSampler(sampler)
     # Loop over batches.
     dist.print0(f'Generating {len(seeds)} images to "{outdir}"...')
@@ -648,7 +685,7 @@ def main(
         if sampler_kwargs.get("discretization", "ddn") == "ddn":
             sampler_fn = ddn_sampler
             sampler_kwargs["batch_seeds"] = batch_seeds
-            if cifar_pretrain_sampler:
+            if sampler_cmd:
                 sampler_kwargs["sampler"] = batch_sampler
 
         images = sampler_fn(
@@ -676,16 +713,18 @@ def main(
                 PIL.Image.fromarray(image_np, "RGB").save(image_path)
 
     # Done.
-
-    torch.distributed.barrier()
-    if dist.get_rank() == 0 and len(seeds) >= 4:
-        # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'.png', np.concatenate(np.concatenate(arrs,2), 0))"
-        exampl_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
+    def make_vis_img(imgps, visp):
         vis = npa([imread(pa) for pa in exampl_paths])
         vis_side = int(len(vis) ** 0.5)
         vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
         boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
         print("Save vis to:", visp)
+
+    torch.distributed.barrier()
+    if dist.get_rank() == 0 and len(seeds) >= 9 and not sampler_cmd:
+        # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'.png', np.concatenate(np.concatenate(arrs,2), 0))"
+        exampl_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
+        make_vis_img(exampl_paths, visp)
 
     if len(seeds) >= 50000:  # or boxx.cf.debug:
         import fid
@@ -708,12 +747,15 @@ def main(
             kimg = ([-1] + boxx.findints(os.path.basename(network_pkl)))[-1]
             os.makedirs(eval_dir, exist_ok=True)
             tmp_tar = "/run/ddn.tar"
-            tar_path = os.path.join(eval_dir, "sample-example.tar")
+            tar_path = os.path.join(eval_dir, sampler_prefix + "sample-example.tar")
             print("Saving example to:", tar_path)
+            exampl_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
             boxx.zipTar(exampl_paths, tmp_tar)
             copy_file = lambda src, dst: open(dst, "wb").write(open(src, "rb").read())
             copy_file(tmp_tar, tar_path)
-            copy_file(visp, os.path.join(eval_dir, f"vis{kimg}.png"))
+            make_vis_img(
+                exampl_paths, os.path.join(eval_dir, sampler_prefix + "vis.png")
+            )
 
             boxx.savejson(
                 dict(
@@ -753,14 +795,15 @@ if __name__ == "__main__":
         boxx.cf.debug = True
         main(
             [
-                "--seeds=0-8",
+                "--seeds=0-5",
                 # "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
                 # "--network=../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl",
                 "--network=../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl",
                 # "--network=cifar10-ddn.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
-                "--batch=2",
+                "--batch=3",
+                "--sampler=test",
             ]
         )
         #%%
