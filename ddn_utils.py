@@ -67,3 +67,11 @@ def load_net(path, device="cuda"):
 
 
 true, false = True, False
+
+
+def make_vis_img(imgps, visp):
+    vis = npa([boxx.imread(pa) for pa in imgps])
+    vis_side = int(len(vis) ** 0.5)
+    vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
+    boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
+    print("Save vis to:", visp)

@@ -638,12 +638,15 @@ def main(
                         data_kwargs["path"] = data_kwargs["path"].replace(
                             "ffhq", "celebahq"
                         )
-                    if "celebahq" in data_kwargs["path"]:
+                        data_kwargs["max_size"] = 30000
+                    elif "celebahq" in data_kwargs["path"]:
                         data_kwargs["path"] = data_kwargs["path"].replace(
                             "celebahq", "ffhq"
                         )
+                        data_kwargs["max_size"] = 70000
+                    boxx.cf.kwargs["data"] = data_kwargs["path"]
                 # from training import training_loop
-
+                dist.print0(f"dataset_guided-{sampler_cmd}:", data_kwargs)
                 dataset_guided = dnnlib.util.construct_class_by_name(**data_kwargs)
             sampler = ReconstructionDatasetSampler(dataset_guided)
 
@@ -713,18 +716,12 @@ def main(
                 PIL.Image.fromarray(image_np, "RGB").save(image_path)
 
     # Done.
-    def make_vis_img(imgps, visp):
-        vis = npa([imread(pa) for pa in exampl_paths])
-        vis_side = int(len(vis) ** 0.5)
-        vis = vis[: vis_side**2].reshape(vis_side, vis_side, *vis[0].shape)
-        boxx.imsave(visp, np.concatenate(np.concatenate(vis, 2), 0))
-        print("Save vis to:", visp)
 
     torch.distributed.barrier()
     if dist.get_rank() == 0 and len(seeds) >= 9 and not sampler_cmd:
         # mxs "arrs=npa([imread(pa) for pa in glob('*/*.??g')[:100]]);arrs=arrs.reshape(10,10,*arrs[0].shape);imsave(abspath('.')+'.png', np.concatenate(np.concatenate(arrs,2), 0))"
-        exampl_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
-        make_vis_img(exampl_paths, visp)
+        example_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
+        make_vis_img(example_paths, visp)
 
     if len(seeds) >= 50000:  # or boxx.cf.debug:
         import fid
@@ -749,12 +746,12 @@ def main(
             tmp_tar = "/run/ddn.tar"
             tar_path = os.path.join(eval_dir, sampler_prefix + "sample-example.tar")
             print("Saving example to:", tar_path)
-            exampl_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
-            boxx.zipTar(exampl_paths, tmp_tar)
+            example_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
+            boxx.zipTar(example_paths, tmp_tar)
             copy_file = lambda src, dst: open(dst, "wb").write(open(src, "rb").read())
             copy_file(tmp_tar, tar_path)
             make_vis_img(
-                exampl_paths, os.path.join(eval_dir, sampler_prefix + "vis.png")
+                example_paths, os.path.join(eval_dir, sampler_prefix + "vis.png")
             )
 
             boxx.savejson(
@@ -769,7 +766,7 @@ def main(
             )
             boxx.savejson(
                 dict(fid=fid["fid"], path=network_pkl, kimg=kimg),
-                os.path.join(eval_dir, "fid-%.3f" % fid["fid"]),
+                os.path.join(eval_dir, sampler_prefix + "fid-%.3f" % fid["fid"]),
             )
     dist.print0("Done.")
     if boxx.cf.debug:
