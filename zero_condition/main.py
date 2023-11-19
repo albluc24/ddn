@@ -481,7 +481,7 @@ class CifarSampler:
         topk = 0.1
         if self.entropy:
             target = None
-            topk = 2
+            topk = 0.1
         if target is None:
             probs = class_probs.max(1)[0]
         else:
@@ -501,6 +501,12 @@ class CifarSampler:
             idx_k=idx_k,
             condition0=target,
         )
+
+
+def FaceRecognizeSampler(target):
+    with impt("../../asset/face_recon_sampler"):
+        from face_recon_sampler import FaceRecognizeSampler
+    return FaceRecognizeSampler(target)
 
 
 class ReconstructionDatasetSampler:
@@ -587,6 +593,48 @@ class BatchedGuidedSampler:
         return npa(idx_ks)
 
 
+class MultiGuidedSampler:
+    def __init__(self, sampler_to_weight):
+        self.sampler_to_weight = sampler_to_weight
+
+    def __call__(self, d):
+        s2w = self.sampler_to_weight
+        sn = len(s2w)
+        outputs = d["output"]
+        b, k, c, h, w = outputs.shape
+        probsd = {}
+        weighted_argsortd = {}
+        for si, sampler in enumerate(s2w):
+            dics = []
+            for batchi in range(b):
+                input_dic = dict(rgbs=outputs[batchi])
+                if "idx_gens" in d:
+                    input_dic["idx_gen"] = d["idx_gens"][batchi]
+                if "sampler_contexts" in d:
+                    input_dic["sampler_context"] = d["sampler_contexts"][si][batchi]
+                dic = sampler(input_dic)
+                dics.append(dic)
+            probsd[sampler] = [npa(dic["probs"]) for dic in dics]
+            weighted_argsortd[sampler] = [
+                np.argsort(npa(dic["probs"])).argsort() * s2w[sampler] for dic in dics
+            ]  # si: b, k
+            if "condition_source0" in dic:
+                d["condition_source0"] = d.get("condition_source0", {})
+                d["condition_source0"][si] = [dic["condition_source0"] for dic in dics]
+            if "condition0" in dic:
+                d["condition0"] = d.get("condition0", {})
+                d["condition0"][si] = [dic["condition0"] for dic in dics]
+            if "sampler_context" in dic:
+                d["sampler_contexts"] = d.get("sampler_contexts", {})
+                d["sampler_contexts"][si] = [dic["sampler_context"] for dic in dics]
+        weighted_argsort = npa(list(weighted_argsortd.values()))  # sn, b, k
+        bk = weighted_argsort.sum(0)  # b, k
+        idx_ks = bk.argmax(1)  # b
+        # print(dic, idx_ks)
+        # g()/0
+        return npa(idx_ks)
+
+
 classi2name = {
     0: "airplane",
     1: "automobile",
@@ -602,7 +650,7 @@ classi2name = {
 if __name__ == "__main__":
 
     datapath = "../../asset/outputs-cifar.pt"
-    # datapath = "../../asset/outputs-ffhq64.pt"
+    datapath = "../../asset/outputs-ffhq64.pt"
     train_imgs = torch.load(datapath).cuda()
 
     pklp = "../../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl"
@@ -616,7 +664,7 @@ if __name__ == "__main__":
         # pklp = "../../asset/v17-00016-ffhq-64x64-outputk2_blockn64_chain.dropout0-shot-082790.pkl"
         pklp = "../../asset/v15-00018-ffhq-64x64-blockn64_outputk512_chain.dropout0.05-shot-117913.pkl"
 
-    net = sys._getframe(3).f_globals.get("net")
+    net = sys._getframe(3 if boxx.sysi.gui else 0).f_globals.get("net")
     if net is None:
         print("load net....")
         net = load_net(pklp)
@@ -625,16 +673,16 @@ if __name__ == "__main__":
     train_idx = 1
     if 1:
         pass
-        # for train_idx in range(3):
+    for train_idx in range(3):
         target = train_imgs[train_idx]
         # target = train_imgs_xflip[train_idx]
         # save_data(d["predict"], "/tmp/predict-as-target")
         # target = load_data("/tmp/predict-as-target")[0]
         dt = dict(target=target[None])
 
-    for i in range(3):
+        # for i in range(3):
         pass
-        # sampler = L2Sampler(target)
+        sampler = L2Sampler(target)
         # sampler = L1Sampler(target)
         # sampler = ColorfulSampler(target)
         # sampler = SuperResSampler(target, 1/8)
@@ -652,10 +700,27 @@ if __name__ == "__main__":
 
         # for classi in range(10):
         # sampler = CifarSampler(classi)
-        sampler = CifarSampler(entropy=True)
+        # sampler = CifarSampler(entropy=True)
+        # sampler = FaceRecognizeSampler(target)
+        # print(sampler(dict(rgbs=torch.cat([train_imgs, train_imgs_xflip])))["probs"].tolist())
+        """
+        # 重建的人脸做 target 识别没问题
+[0.0014740412589162588, 0.00017411627050023526, 0.6346914768218994, 0.007211570627987385, 0.00024585213395766914, 0.3562029302120209]
+        """
         # sampler = ReconstructionDatasetSampler()
 
-        batch_sampler = BatchedGuidedSampler(sampler)
+        # print(sampler(dict(rgbs=train_imgs_xflip))["probs"])
+
+        # batch_sampler = BatchedGuidedSampler(sampler)
+        samplerd = {
+            L2Sampler(train_imgs[train_idx]): 1,
+            L2Sampler(train_imgs_xflip[(train_idx + 1) % 3]): 1,
+        }
+        samplerd = {
+            ColorfulSampler(train_imgs[train_idx]): 1,
+            SuperResSampler(train_imgs_xflip[(train_idx + 1) % 3], 1 / 16): 0.1,
+        }
+        batch_sampler = MultiGuidedSampler(samplerd)
         d = dict(sampler=batch_sampler)
         # d["idx_gens"] = [0]
         d = net(d)
@@ -667,7 +732,9 @@ if __name__ == "__main__":
                 "class:",
                 sampler.model(d["predict"]).max(1)[1].item(),
             )
-
-        showd(d, 1, figsize=(8, 5) if target.shape[-1] >= 40 else (4, 3))
+        if boxx.sysi.gui:
+            showd(d, 1, figsize=(8, 5) if target.shape[-1] >= 40 else (4, 3))
+        else:
+            tree(d, deep=1)
 
         # d=net(dict(batch_size=6));showd(d,1);sampler.model(d["predict"]).max(1)

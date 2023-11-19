@@ -16,26 +16,34 @@ with inpkg():
 if __name__ == "__main__":
     img_glob = "~/dataset/celebA-HQ/test-256x256/*g"
     pklp = "../../asset/v15-00018-ffhq-64x64-blockn64_outputk512_chain.dropout0.05-shot-117913.pkl"
-    outputdir = boxx.relfile("../../asset/zero_condition_image_gen/")
-    condidat_num = 1
+    # pklp = "../../asset/v19-00004-ffhq-64x64-outputk512_leak.choice0-shot-027597.pkl"
+    outputdir = "../../asset/figure/zero_condition_final30x200/"
+    condidat_num = 200
     target_shape = 64, 64
+    if debug:
+        condidat_num = 1
+        outputdir = "../../junk/zero_condition/v19/"
 
-    net = sys._getframe(3).f_globals.get("net")
+    outputdir = boxx.relfile(outputdir)
+    net = sys._getframe(3 if boxx.sysi.gui else 0).f_globals.get("net")
     if net is None:
         print("load net....")
         net = load_net(pklp)
 
     imgps = sorted(glob(os.path.expanduser(img_glob)))
+    imgps = __import__("brainpp_yl").split_keys_by_replica(imgps)
     os.makedirs(outputdir, exist_ok=True)
     for imgp in imgps[:]:
         fname = filename(imgp)
-        if fname not in [
+        if debug and fname not in [
             "00144",
             "00002",
             "00136",
             "00149",
         ]:
             continue
+        else:
+            print(f"{increase('gen')}/{len(imgps)}")
         img = boxx.imread(imgp)
         target = uint8_to_tensor(img)
         target = nn.functional.interpolate(target[None], target_shape, mode="area")[0]
@@ -48,13 +56,14 @@ if __name__ == "__main__":
             "06denoise": lambda: NoiseSampler(target),
             "07lowbit": lambda: LowBitSampler(target),
             "08color": lambda: ColorfulSampler(target),
-            "09inpainting_right": lambda: L2MaskedSampler(target, 0),
-            "10inpainting_down": lambda: L2MaskedSampler(target, 1),
-            "11inpainting_s": lambda: L2MaskedSampler(target, 8),
-            "12inpainting_is": lambda: L2MaskedSampler(target, 7),
+            "09inpainting.right": lambda: L2MaskedSampler(target, 0),
+            "10inpainting.down": lambda: L2MaskedSampler(target, 1),
+            "11inpainting.masks": lambda: L2MaskedSampler(target, 8),
+            "12inpainting.i.masks": lambda: L2MaskedSampler(target, 7),
             "13style": lambda: StyleTransfer(
                 target,
             ),
+            "14face.recon": lambda: FaceRecognizeSampler(target),
         }
         for sampler_name in samplers:
             sampler = samplers[sampler_name]()
