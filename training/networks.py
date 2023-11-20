@@ -10,6 +10,7 @@ import boxx
 import numpy as np
 import torch
 import random
+import math
 
 if __name__ == "__main__":
     from boxx.ylth import *
@@ -858,14 +859,23 @@ class DiscreteDistributionBlock(torch.nn.Module):
         predict = d.get("predict")
         feat_leak = d.get("feat_leak")
         if inp is None:  # init d
-            inp = torch.cat(
-                [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
-                * batch_size
+            # inp = torch.cat(
+            #     [torch.linspace(-1, 1, self.in_c).reshape(1, self.in_c, 1, 1)]
+            #     * batch_size
+            # ).cuda()
+            # predict = torch.cat(
+            #     [torch.linspace(-1, 1, self.predict_c).reshape(1, self.predict_c, 1, 1)]
+            #     * batch_size
+            # ).cuda()
+
+            # Destructive changes to transfer learning
+            inp = sddn.build_init_feature(
+                (batch_size, self.in_c, self.output_size, self.output_size)
             ).cuda()
-            predict = torch.cat(
-                [torch.linspace(-1, 1, self.predict_c).reshape(1, self.predict_c, 1, 1)]
-                * batch_size
+            predict = torch.zeros(
+                (batch_size, self.predict_c, self.output_size, self.output_size)
             ).cuda()
+
             if boxx.cf.get("kwargs", {}).get(
                 "fp16",
             ):
@@ -1202,12 +1212,17 @@ class PHDDNHandsDense(
             ) + [name]
             return block
 
-        for scalei in range(self.scalen + 1):
+        start_size = boxx.cf.get("kwargs", {}).get("start_size", 1)
+        blockn_times = boxx.cf.get("kwargs", {}).get("blockn_times", 1)
+        self.scalis = range(int(math.log2(start_size)), self.scalen + 1)
+
+        last_scalei = self.scalis[0]
+        for scalei in self.scalis:
             size = 2**scalei
             channeln = get_channeln(scalei)
             last_channeln = get_channeln(scalei - 1)
             k = get_outputk(scalei)
-            if scalei:
+            if last_scalei != scalei:
                 # up block
                 block_up = UNetBlockWoEmb(
                     in_channels=last_channeln,
@@ -1222,11 +1237,14 @@ class PHDDNHandsDense(
             else:  # scale0 only 1 block
                 block = UNetBlockWoEmb(channeln, channeln, **block_kwargs)
                 set_block(
-                    "block_1x1_0", DiscreteDistributionBlock(block, k, output_size=size)
+                    f"block_{size}x{size}_0",
+                    DiscreteDistributionBlock(block, k, output_size=size),
                 )
-                continue
+                if not scalei:  # 1 blockn for scalei==0(1x1)
+                    continue
             cin = channeln
-            for block_count in range(1, get_blockn(scalei)):
+            blockn = int(round(get_blockn(scalei) * blockn_times))
+            for block_count in range(1, blockn):
                 block = UNetBlockWoEmb(cin, channeln, **block_kwargs)
                 set_block(
                     f"block_{size}x{size}_{block_count}",
@@ -1280,7 +1298,7 @@ class PHDDNHandsDense(
         # d = d if isinstance(d, dict) else {"batch_size": 1 if d is None else len(d)}
         if self.label_dim and labels is not None:
             d["class_labels"] = labels
-        for scalei in range(self.scalen + 1):
+        for scalei in self.scalis:
             for repeati in range(self.scale_to_repeatn.get(scalei, 1)):
                 for module_idx, name in enumerate(self.scale_to_module_names[scalei]):
                     # print(name)
@@ -1310,8 +1328,6 @@ class PHDDNHandsDense(
     def table(
         self,
     ):
-        import math
-
         times = 1
         mds = []
         for name in self.module_names:

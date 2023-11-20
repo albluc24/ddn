@@ -153,6 +153,22 @@ def parse_int_list(s):
     show_default=True,
 )
 @click.option(
+    "--start-size",
+    help="Start size of first layer e.g.1,2,4,8...",
+    metavar="SIZE",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+)
+@click.option(
+    "--blockn-times",
+    help="Blockn_times to times blockn",
+    metavar="INT",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+)
+@click.option(
     "--debug",
     help="debug mode",
     metavar="BOOL",
@@ -567,7 +583,9 @@ if __name__ == "__main__":
                 # "--cond=1",
                 # "--condition=class",
                 # "--condition=resize8",
-                "--condition=edge",
+                # "--condition=edge",
+                "--blockn-times=3",
+                "--start-size=32",
             ]
         )
         # show(d["condition"].float(), tprgb);show(d["target"].float(), tprgb, norma)
