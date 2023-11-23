@@ -8,6 +8,7 @@ Created on Sun Nov  5 23:43:43 2023
 import cv2
 import boxx
 from boxx.ylth import *
+import math
 import torch
 import random
 import torch.nn.functional as F
@@ -130,6 +131,27 @@ class L2MaskedSampler:
         )  # [0,0]
         loss = torch.abs(rgbs - resized)  # l1
         # loss = (rgbs-resized)**2 # l2
+        probs = nn.functional.softmax(
+            -((loss) * mask_resized).sum([-1, -2]).mean(-1)
+            / (mask_resized.sum() + eps),
+            0,
+        )
+        return dict(
+            probs=probs,
+            idx_k=topk_sample(probs, 2),
+            condition0=self.target,
+            condition_source0=self.raw,
+        )
+
+    def __call__(self, dic):
+        rgbs = dic["rgbs"]
+        k, c, h, w = rgbs.shape
+        hh, ww = self.target.shape[-2:]
+        rgbs = nn.functional.interpolate(rgbs, (hh, ww), mode="area")
+
+        # loss = torch.abs(rgbs-self.target) # l1
+        loss = (rgbs - self.target) ** 2  # l2
+        mask_resized = self.mask[None, None].float()
         probs = nn.functional.softmax(
             -((loss) * mask_resized).sum([-1, -2]).mean(-1)
             / (mask_resized.sum() + eps),
@@ -509,6 +531,79 @@ def FaceRecognizeSampler(target):
     return FaceRecognizeSampler(target)
 
 
+class CLIPSampler:
+    def __init__(self, target):
+        import clip
+
+        self.raw = target
+        model_name = "ViT-B/32"  # 338M  # 0.07384706
+        # model_name = 'RN50' # 244M  # 0.09297562
+        # model_name = 'RN50x64' # 1.26G
+        device = "cuda"
+        self.model, transform = clip.load(model_name, device=device)
+        # self.model =
+        with torch.no_grad():
+            tokens = clip.tokenize([target]).to(device)
+            self.target = self.model.encode_text(tokens)
+
+    def __call__(self, dic):
+        rgbs = dic["rgbs"]
+        dtpye = rgbs.dtype
+        device = rgbs.device
+        mean = (
+            torch.Tensor([0.48145466, 0.4578275, 0.40821073])
+            .reshape(
+                3,
+                1,
+                1,
+            )
+            .to(dtpye)
+            .to(device)
+        )
+        std = (
+            torch.Tensor([0.26862954, 0.26130258, 0.27577711])
+            .reshape(
+                3,
+                1,
+                1,
+            )
+            .to(dtpye)
+            .to(device)
+        )
+        rgbs = ((rgbs + 1) / 2 - mean) / std
+
+        # rgbs = nn.functional.interpolate(rgbs, (224, 224), mode="area")
+        # rgbs = nn.functional.interpolate(rgbs, (224, 224), mode='bilinear', align_corners=False)
+        rgbs = nn.functional.interpolate(rgbs, (224, 224), mode="bicubic")
+
+        with torch.no_grad():
+            num_minibatches = math.ceil(rgbs.size(0) / 8)
+            minibatches = torch.chunk(rgbs, num_minibatches)
+            image_features = []
+            for batch in minibatches:
+                image_features.append(self.model.encode_image(batch))
+            image_features = torch.cat(image_features, dim=0)
+
+            text_features = self.target
+
+        image_features /= image_features.norm(dim=-1, keepdim=True)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        # similarity = (100 * image_features @ text_features.T).softmax(dim=0)
+
+        # probs = ((similarity - similarity.min()) / (similarity.max() - similarity.min() + 1e-6)).squeeze()
+        probs = (100 * image_features @ text_features.T)[:, 0]
+
+        # 后面的 idx_k condition_source0 condition0 可以不返回, 但推荐返回, 方便看效果
+        mg()
+        return dict(
+            probs=probs,
+            idx_k=topk_sample(probs, 2),
+            condition_source0=self.raw,
+            condition0=self.target,
+        )
+
+
 class ReconstructionDatasetSampler:
     def __init__(
         self,
@@ -661,8 +756,8 @@ if __name__ == "__main__":
     if "ffhq" in datapath:
         pklp = "../../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl"
         pklp = "../../asset/v15-00023-ffhq-64x64-blockn64_outputk64_chain.dropout0.05-shot-117913.pkl"
-        # pklp = "../../asset/v17-00016-ffhq-64x64-outputk2_blockn64_chain.dropout0-shot-082790.pkl"
-        pklp = "../../asset/v15-00018-ffhq-64x64-blockn64_outputk512_chain.dropout0.05-shot-117913.pkl"
+        pklp = "../../asset/v17-00016-ffhq-64x64-outputk2_blockn64_chain.dropout0-shot-082790.pkl"
+        # pklp = "../../asset/v15-00018-ffhq-64x64-blockn64_outputk512_chain.dropout0.05-shot-117913.pkl"
 
     net = sys._getframe(3 if boxx.sysi.gui else 0).f_globals.get("net")
     if net is None:
@@ -673,7 +768,7 @@ if __name__ == "__main__":
     train_idx = 1
     if 1:
         pass
-    for train_idx in range(3):
+        # for train_idx in range(3):
         target = train_imgs[train_idx]
         # target = train_imgs_xflip[train_idx]
         # save_data(d["predict"], "/tmp/predict-as-target")
@@ -707,20 +802,28 @@ if __name__ == "__main__":
         # 重建的人脸做 target 识别没问题
 [0.0014740412589162588, 0.00017411627050023526, 0.6346914768218994, 0.007211570627987385, 0.00024585213395766914, 0.3562029302120209]
         """
+
+        target_ = "black man"
+        # target_ = "a young blonde woman laughing heartily"
+        # target_ = "a woman with a somewhat unhappy expression and a pout"
+        # target_ = "head portrait, a young blonde woman laughing under blue sky and green grass"
+
+        sampler = CLIPSampler(target_)
+
         # sampler = ReconstructionDatasetSampler()
 
         # print(sampler(dict(rgbs=train_imgs_xflip))["probs"])
 
-        # batch_sampler = BatchedGuidedSampler(sampler)
-        samplerd = {
-            L2Sampler(train_imgs[train_idx]): 1,
-            L2Sampler(train_imgs_xflip[(train_idx + 1) % 3]): 1,
-        }
-        samplerd = {
-            ColorfulSampler(train_imgs[train_idx]): 1,
-            SuperResSampler(train_imgs_xflip[(train_idx + 1) % 3], 1 / 16): 0.1,
-        }
-        batch_sampler = MultiGuidedSampler(samplerd)
+        batch_sampler = BatchedGuidedSampler(sampler)
+        # samplerd = {
+        #     L2Sampler(train_imgs[train_idx]): 1,
+        #     L2Sampler(train_imgs_xflip[(train_idx + 1) % 3]): 1,
+        # }
+        # samplerd = {
+        #     ColorfulSampler(train_imgs[train_idx]): 1,
+        #     SuperResSampler(train_imgs_xflip[(train_idx + 1) % 3], 1 / 16): 0.1,
+        # }
+        # batch_sampler = MultiGuidedSampler(samplerd)
         d = dict(sampler=batch_sampler)
         # d["idx_gens"] = [0]
         d = net(d)
