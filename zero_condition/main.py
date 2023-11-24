@@ -598,7 +598,7 @@ class CLIPSampler:
         mg()
         return dict(
             probs=probs,
-            idx_k=topk_sample(probs, 2),
+            idx_k=topk_sample(probs, 1 if len(probs)==2 else 2),
             condition_source0=self.raw,
             condition0=self.target,
         )
@@ -756,7 +756,7 @@ if __name__ == "__main__":
     if "ffhq" in datapath:
         pklp = "../../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl"
         pklp = "../../asset/v15-00023-ffhq-64x64-blockn64_outputk64_chain.dropout0.05-shot-117913.pkl"
-        pklp = "../../asset/v17-00016-ffhq-64x64-outputk2_blockn64_chain.dropout0-shot-082790.pkl"
+        # pklp = "../../asset/v17-00016-ffhq-64x64-outputk2_blockn64_chain.dropout0-shot-082790.pkl"
         # pklp = "../../asset/v15-00018-ffhq-64x64-blockn64_outputk512_chain.dropout0.05-shot-117913.pkl"
 
     net = sys._getframe(3 if boxx.sysi.gui else 0).f_globals.get("net")
@@ -804,6 +804,8 @@ if __name__ == "__main__":
         """
 
         target_ = "black man"
+        # target_ = "man wearing glasses"
+        # target_ = "woman wearing glasses"
         # target_ = "a young blonde woman laughing heartily"
         # target_ = "a woman with a somewhat unhappy expression and a pout"
         # target_ = "head portrait, a young blonde woman laughing under blue sky and green grass"
