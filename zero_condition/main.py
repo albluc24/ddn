@@ -118,6 +118,9 @@ class L2MaskedSampler:
                 mask_ = get_mask_s((h, w))
             if mask == 8:  # mask s
                 mask_ = ~get_mask_s((h, w))
+            if mask == 9:  # eyes
+                mask_[h * 2 // 5 : h * 5 // 9] = 1
+                mask_ = ~mask_
             mask = mask_
         self.mask = mask.cuda()
         self.target = target[None] * self.mask
@@ -130,7 +133,7 @@ class L2MaskedSampler:
             self.mask[None, None].float(), (h, w), mode="area"
         )  # [0,0]
         loss = torch.abs(rgbs - resized)  # l1
-        # loss = (rgbs-resized)**2 # l2
+        loss = (rgbs - resized) ** 2  # l2
         probs = nn.functional.softmax(
             -((loss) * mask_resized).sum([-1, -2]).mean(-1)
             / (mask_resized.sum() + eps),
@@ -451,16 +454,19 @@ class StyleResNet(torchvision.models.ResNet):
 
         return x
 
-
-class StyleTransfer:
-    def __init__(self, target):
-
+    @staticmethod
+    def build_with_pretrain():
         pretrain = torchvision.models.resnet18(
             weights=torchvision.models.resnet.ResNet18_Weights.DEFAULT
         ).state_dict()
-        self.model = StyleResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2])
-        self.model.load_state_dict(pretrain)
-        self.model = self.model.eval().cuda()
+        model = StyleResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2])
+        model.load_state_dict(pretrain)
+        return model
+
+
+class StyleTransferResnet:
+    def __init__(self, target):
+        self.model = StyleResNet.build_with_pretrain().eval().cuda()
         self.raw = target
         self.target = self.f(target[None])
 
@@ -479,6 +485,44 @@ class StyleTransfer:
             condition0=self.target,
             condition_source0=self.raw,
         )
+
+
+class StyleVGG(torchvision.models.VGG):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        b, c, h, w = x.shape
+        x = self.features[:1](x)
+        # sampler.model.features
+        # g()/0
+        return x.view(b, -1)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+    @staticmethod
+    def build_with_pretrain():
+        pretrain = torchvision.models.vgg11_bn(
+            weights=torchvision.models.vgg.VGG11_BN_Weights.DEFAULT
+        ).state_dict()
+        model = StyleVGG(
+            torchvision.models.vgg.make_layers(
+                [64, "M", 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],
+                batch_norm=True,
+            ),
+        )
+        model.load_state_dict(pretrain)
+        return model
+
+
+class StyleTransferVGG(StyleTransferResnet):
+    def __init__(self, target):
+        self.model = StyleVGG.build_with_pretrain().eval().cuda()
+        self.raw = target
+        self.target = self.f(target[None])
+
+
+StyleTransfer = StyleTransferResnet
+# StyleTransfer = StyleTransferVGG
 
 
 class CifarSampler:
@@ -598,7 +642,7 @@ class CLIPSampler:
         mg()
         return dict(
             probs=probs,
-            idx_k=topk_sample(probs, 1 if len(probs)==2 else 2),
+            idx_k=topk_sample(probs, 1 if len(probs) == 2 else 2),
             condition_source0=self.raw,
             condition0=self.target,
         )
@@ -724,7 +768,8 @@ class MultiGuidedSampler:
                 d["sampler_contexts"][si] = [dic["sampler_context"] for dic in dics]
         weighted_argsort = npa(list(weighted_argsortd.values()))  # sn, b, k
         bk = weighted_argsort.sum(0)  # b, k
-        idx_ks = bk.argmax(1)  # b
+        # idx_ks = bk.argmax(1)  # b
+        idx_ks = [topk_sample(prob, 2) for prob in bk]
         # print(dic, idx_ks)
         # g()/0
         return npa(idx_ks)
@@ -768,9 +813,9 @@ if __name__ == "__main__":
     train_idx = 1
     if 1:
         pass
-        # for train_idx in range(3):
+    for train_idx in range(3):
         target = train_imgs[train_idx]
-        # target = train_imgs_xflip[train_idx]
+        target = train_imgs_xflip[train_idx]
         # save_data(d["predict"], "/tmp/predict-as-target")
         # target = load_data("/tmp/predict-as-target")[0]
         dt = dict(target=target[None])
@@ -784,7 +829,7 @@ if __name__ == "__main__":
         # sampler = NoiseSampler(target)
         # sampler = LowBitSampler(target)
         #     maski = 7
-        # for maski in range(9):
+        # for maski in range(10):
         #     sampler = L2MaskedSampler(target, maski)
         # Canny 和 Edge 效果不好
         # sampler = CannySampler(target, )
@@ -803,12 +848,13 @@ if __name__ == "__main__":
 [0.0014740412589162588, 0.00017411627050023526, 0.6346914768218994, 0.007211570627987385, 0.00024585213395766914, 0.3562029302120209]
         """
 
-        target_ = "black man"
-        # target_ = "man wearing glasses"
-        # target_ = "woman wearing glasses"
+        # target_ = "black man"
+        target_ = "man wearing sunglasses"
+        # target_ = "woman wearing sunglasses"
         # target_ = "a young blonde woman laughing heartily"
         # target_ = "a woman with a somewhat unhappy expression and a pout"
         # target_ = "head portrait, a young blonde woman laughing under blue sky and green grass"
+        # target_ = "Donald Trump"
 
         sampler = CLIPSampler(target_)
 
@@ -822,8 +868,13 @@ if __name__ == "__main__":
         #     L2Sampler(train_imgs_xflip[(train_idx + 1) % 3]): 1,
         # }
         # samplerd = {
-        #     ColorfulSampler(train_imgs[train_idx]): 1,
-        #     SuperResSampler(train_imgs_xflip[(train_idx + 1) % 3], 1 / 16): 0.1,
+        #     ColorfulSampler(train_imgs[train_idx]): .25,
+        #     SuperResSampler(train_imgs_xflip[(train_idx + 1) % 3], 1 / 8): 0.25,
+        #     CLIPSampler("wearing sunglasses"):.5,
+        # }
+        # samplerd = {
+        #     L2MaskedSampler(target, 9):.25,
+        #     CLIPSampler("wearing sunglasses"):.75,
         # }
         # batch_sampler = MultiGuidedSampler(samplerd)
         d = dict(sampler=batch_sampler)
@@ -841,5 +892,6 @@ if __name__ == "__main__":
             showd(d, 1, figsize=(8, 5) if target.shape[-1] >= 40 else (4, 3))
         else:
             tree(d, deep=1)
+            # shows(d["predict"], t2rgb, png=True)
 
         # d=net(dict(batch_size=6));showd(d,1);sampler.model(d["predict"]).max(1)

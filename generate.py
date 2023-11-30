@@ -43,24 +43,33 @@ def ddn_sampler(
         if "sampler" in kwargs:
             d["sampler"] = kwargs["sampler"]
         else:
-            d["idx_ks"] = torch.cat(
-                [
-                    torch.rand(
-                        total_output_level,
-                        1,
-                        generator=torch.Generator().manual_seed(seed),
-                    )
-                    for seed in kwargs["batch_seeds"].tolist()
-                ],
-                -1,
-            )
+            if "markov_sampler" in kwargs:
+                d["idx_ks"] = torch.cat(
+                    [
+                        kwargs["markov_sampler"].sample(seed=seed)[:, None]
+                        for seed in kwargs["batch_seeds"].tolist()
+                    ],
+                    -1,
+                )  # l, b
+            else:
+                d["idx_ks"] = torch.cat(
+                    [
+                        torch.rand(
+                            total_output_level,
+                            1,
+                            generator=torch.Generator().manual_seed(seed),
+                        )
+                        for seed in kwargs["batch_seeds"].tolist()
+                    ],
+                    -1,
+                )  # l, b
     with torch.no_grad():
         d = net(d, None, class_labels)
     kwargs["total_output_level"] = d.get("output_level", -2) + 1
     boxx.mg()
     if boxx.cf.debug:
         showd(d, 1)
-    return d["predict"]
+    return d
 
 
 def edm_sampler(
@@ -511,6 +520,13 @@ def parse_int_list(s):
     default=None,
     type=click.Choice(["none", "train", "test", "class", "xflip", "entropy"]),
 )
+@click.option(
+    "--markov",
+    help="Markov Sampling [pt_path, 1,0]",
+    metavar="PATH|INT",
+    type=str,
+    default=None,
+)
 def main(
     network_pkl,
     outdir,
@@ -522,6 +538,7 @@ def main(
     learn_res=None,
     skip_exist=True,
     sampler=None,
+    markov=None,
     **sampler_kwargs,
 ):
     (
@@ -564,6 +581,14 @@ def main(
     fid_path = os.path.join(eval_dir, sampler_prefix + "fid.json")
     if skip_exist is None:
         skip_exist = len(seeds) in [100, 50000]
+
+    if markov:
+        markov = int(markov) if len(markov) == 1 else markov
+        if markov:
+            assert markov != 1, "NotImplement!"
+            from zero_condition.markov_sampler import MarkovSampler
+
+            markov_sampler = MarkovSampler(markov)
 
     dist.init()
     if (
@@ -610,6 +635,7 @@ def main(
     if dist.get_rank() == 0:
         torch.distributed.barrier()
 
+    idx_ks_list = []
     if sampler_cmd:
         from zero_condition.main import (
             ReconstructionDatasetSampler,
@@ -691,9 +717,16 @@ def main(
             if sampler_cmd:
                 sampler_kwargs["sampler"] = batch_sampler
 
+            if markov:
+                sampler_kwargs["markov_sampler"] = markov_sampler
+
         images = sampler_fn(
             net, latents, class_labels, randn_like=rnd.randn_like, **sampler_kwargs
         )
+        if isinstance(images, dict):
+            d, images = images, images["predict"]
+            idx_ks = npa(d["idx_ks"]).T  # b, l of np
+            idx_ks_list.append(idx_ks)
 
         # Save images.
         images_np = (
@@ -724,6 +757,39 @@ def main(
         make_vis_img(example_paths, visp)
 
     if len(seeds) >= 50000:  # or boxx.cf.debug:
+        # sync and save latent
+        ws = dist.get_world_size()
+        ts = {
+            rank: -torch.ones(
+                ((len(seeds)) // ws + 1, idx_ks_list[0].shape[-1]), dtype=torch.int32
+            ).cuda()
+            for rank in range(ws)
+        }
+        for rank, tensor in ts.items():
+            if dist.get_rank() == rank:
+                idx_ks_ = torch.from_numpy(np.concatenate(idx_ks_list))
+                tensor[: len(idx_ks_)] = idx_ks_.to(torch.int32)
+            if torch.distributed.is_initialized():
+                torch.distributed.barrier()
+                torch.distributed.broadcast(tensor, src=rank)
+        if dist.get_rank() == 0:
+            ddn_latents = torch.cat(tuple(ts.values()))
+            ddn_latents = ddn_latents[ddn_latents[:, 0] >= 0].short().cpu()
+            os.makedirs(eval_dir, exist_ok=True)
+            ddn_latents_path = os.path.join(
+                eval_dir,
+                sampler_prefix
+                + f"ddn_latents_l{len(ddn_latents[0])}_n{len(ddn_latents)}.pt",
+            )
+            print("Save DDN latents to:", ddn_latents_path)
+            torch.save(ddn_latents, ddn_latents_path)
+            if sampler_cmd == "train":
+                torch.save(
+                    ddn_latents, os.path.join(eval_dir, "train_seqs_for_markov.pt")
+                )
+
+            # 1/0
+
         import fid
 
         ref_path = "fid-refs/cifar10-32x32.npz"
@@ -795,12 +861,14 @@ if __name__ == "__main__":
                 "--seeds=0-5",
                 # "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
                 # "--network=../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl",
-                "--network=../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl",
                 # "--network=cifar10-ddn.pkl",
+                # "--network=../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl",
+                "--network=../asset/v15-00035-cifar10-32x32-cifar_blockn32_outputk64_chain.dropout0.05_fp32_goon.v15.22-shot-087808.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
                 "--batch=3",
-                "--sampler=test",
+                # "--sampler=test",
+                "--markov=../asset/sampler.train-ddn_latents_l63_n50000.pt",
             ]
         )
         #%%
