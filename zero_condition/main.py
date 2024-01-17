@@ -828,9 +828,9 @@ if __name__ == "__main__":
         # sampler = SuperResSampler(target, 1/8)
         # sampler = NoiseSampler(target)
         # sampler = LowBitSampler(target)
-        #     maski = 7
+        maski = 9
         # for maski in range(10):
-        #     sampler = L2MaskedSampler(target, maski)
+        sampler = L2MaskedSampler(target, maski)
         # Canny 和 Edge 效果不好
         # sampler = CannySampler(target, )
         # sampler = EdgeSampler(target, )
@@ -856,7 +856,7 @@ if __name__ == "__main__":
         # target_ = "head portrait, a young blonde woman laughing under blue sky and green grass"
         # target_ = "Donald Trump"
 
-        sampler = CLIPSampler(target_)
+        # sampler = CLIPSampler(target_)
 
         # sampler = ReconstructionDatasetSampler()
 
