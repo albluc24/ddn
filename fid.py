@@ -240,12 +240,15 @@ def calc_fid(image_path, ref_path, num_expected=50000, seed=0, batch=64):
     help="Maximum batch size",
     metavar="INT",
     type=click.IntRange(min=1),
-    default=64,
+    default=4,
     show_default=True,
 )
 def ref(dataset_path, dest_path, batch):
     """Calculate dataset reference statistics needed by 'calc'."""
-    torch.multiprocessing.set_start_method("spawn")
+    print("""Warning!!! Creating fid ref often fails mysteriously. Recommendations:
+1. Set `--batch` to a small value that is a divisor of `len(dataset)`
+2. Try multiple times""")
+    torch.multiprocessing.set_start_method("spawn", force=True)
     dist.init()
 
     mu, sigma = calculate_inception_stats(image_path=dataset_path, max_batch_size=batch)
@@ -268,7 +271,7 @@ if __name__ == "__main__":
     from boxx.ylth import *
     from ddn_utils import debug, argkv
 
-    if debug:
+    if debug and 0:
         main(
             [
                 "calc",

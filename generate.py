@@ -527,6 +527,14 @@ def parse_int_list(s):
     type=str,
     default=None,
 )
+@click.option(
+    "--debug",
+    help="debug mode",
+    metavar="BOOL",
+    type=bool,
+    default=False,
+    show_default=True,
+)
 def main(
     network_pkl,
     outdir,
@@ -538,7 +546,7 @@ def main(
     learn_res=None,
     skip_exist=True,
     sampler=None,
-    markov=None,
+    markov=None,  # Abandoned, sampling through a priori
     **sampler_kwargs,
 ):
     (

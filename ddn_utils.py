@@ -1,9 +1,10 @@
 import numpy
 
 try:  # Compatible with s3
-    import brainpp_yl.fs
+    # import brainpp_yl.fs
 
-    brainpp_yl.fs.compat_mode()
+    # brainpp_yl.fs.compat_mode()
+    pass
 except:
     pass
 
@@ -22,8 +23,8 @@ debug = (
     not cudan or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
 )
 
-if argkv.get("debug"):
-    debug = True
+if "debug" in argkv:
+    debug = str(argkv.get("debug")).lower() in ['1', "true", "t", "y", "yes"]
 
 
 from boxx import tprgb, show, np, npa
