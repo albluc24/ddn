@@ -566,10 +566,11 @@ def main(
         --network=https://nvlabs-fi-cdn.nvidia.com/edm/pretrained/edm-cifar10-32x32-cond-vp.pkl
     """
         + """
+    # Doc string for DDN:
     If len(seeds) > 50000, will eval FID.
     """
     )
-    network_pkl = network_pkl.replace("https://oss.iap.hh-d.brain" + "pp.cn/", "s3://")
+    # network_pkl = network_pkl.replace("https://oss.iap.hh-d.brain" + "pp.cn/", "s3://")
     is_s3 = network_pkl.startswith("s3://")
     if outdir is None:
         if is_s3:
@@ -577,10 +578,11 @@ def main(
         else:
             outdir = os.path.abspath(os.path.join(network_pkl, "..", "generate"))
         os.makedirs(outdir, exist_ok=True)
+    # Visualization Image Path
     visp = (
-        (network_pkl + "$").replace(".pkl$", "v.png").replace(".pt$", "v.png")
+        (network_pkl + "$").replace(".pkl$", "-vis.png").replace(".pt$", "-vis.png")
         if outdir.endswith("/generate")
-        else os.path.abspath(outdir) + "-v.png"
+        else os.path.abspath(outdir) + "-vis.png"
     )
     eval_dir = visp[:-5]
 
@@ -866,19 +868,20 @@ if __name__ == "__main__":
         boxx.cf.debug = True
         main(
             [
-                "--seeds=0-5",
+                "--seeds=0-15",
                 # "--network=../asset/v12_augment0-00000-ffhq-64x64-outputk8_learn.res-007526.pkl",
                 # "--network=../asset/v13_new.setting-00000-ffhq64-fp16-dropout0-200000.pkl",
                 # "--network=cifar10-ddn.pkl",
-                # "--network=../asset/v15_00022-cifar10-blockn32_outputk64_chain.dropout0.05_fp32-shot-200000.pkl",
-                "--network=../asset/v15-00035-cifar10-32x32-cifar_blockn32_outputk64_chain.dropout0.05_fp32_goon.v15.22-shot-087808.pkl",
+                "--network=../asset/v15-00023-ffhq-64x64-blockn64_outputk64_chain.dropout0.05-shot-117913.pkl",
+                # "--network=../asset/v15-00035-cifar10-32x32-cifar_blockn32_outputk64_chain.dropout0.05_fp32_goon.v15.22-shot-087808.pkl",
                 # "--network=exps/cifar10-ddn.pkl",
                 "--outdir=/tmp/gen_ddn",
                 "--batch=3",
                 # "--sampler=test",
-                "--markov=../asset/sampler.train-ddn_latents_l63_n50000.pt",
+                # "--markov=../asset/sampler.train-ddn_latents_l63_n50000.pt",
             ]
         )
+        
         #%%
         dataset_obj = dnnlib.util.construct_class_by_name(
             **{
