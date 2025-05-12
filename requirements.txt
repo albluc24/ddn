@@ -1,0 +1,9 @@
+sddn>=0.0.2
+boxx>=0.10.16
+tqdm
+click
+
+
+# pytorch
+# torchvision
+

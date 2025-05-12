@@ -1,18 +1,18 @@
-# Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# This work is licensed under a Creative Commons
-# Attribution-NonCommercial-ShareAlike 4.0 International License.
-# You should have received a copy of the license along with this
-# work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
-
-FROM nvcr.io/nvidia/pytorch:22.10-py3
+FROM nvcr.io/nvidia/pytorch:24.02-py3
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-RUN pip install imageio imageio-ffmpeg==0.4.4 pyspng==0.1.0
+RUN apt update && apt install -y git curl net-tools tmux tree htop
+RUN pip install --no-cache-dir boxx ipython
+COPY requirements.txt /requirements.txt
+RUN pip install -r /requirements.txt
 
-WORKDIR /workspace
+ENTRYPOINT []
 
-RUN (printf '#!/bin/bash\nexec \"$@\"\n' >> /entry.sh) && chmod a+x /entry.sh
-ENTRYPOINT ["/entry.sh"]
+# build docker image
+# docker build --network=host -t ddn .
+# 
+# run docker container
+# docker run -it --gpus all --net=host -v `pwd`:/workspace -v /home/yl/ws/ddn/asset/v15-00023-ffhq-64x64-blockn64_outputk64_chain.dropout0.05-shot-117913.pkl:/share/ddn.pkl -v /tmp/share:/share ddn python generate.py --debug 0 --batch=3 --seeds=0-15 --network /share/ddn.pkl
+# 
