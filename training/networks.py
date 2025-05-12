@@ -1055,8 +1055,22 @@ class ConditionProcess(torch.nn.Module):
                 )
                 d["condition"].append(resize_back)
                 d["condition_resized"] = resized
-            if ct == "color":
-                d["condition"].append(condition_source.mean(-3, keepdim=True))
+            if ct == "color":  # TODO do random per batch rather than per iter
+                # d["condition"].append(condition_source.mean(-3, keepdim=True))
+                if self.training:
+                    # Generate random weights for RGB channels that sum to 1
+                    weights = torch.rand(3, device=condition_source.device)
+                    weights = weights / weights.sum()  # normalize weights to sum to 1
+                    
+                    # Reshape weights for broadcasting: [3] -> [1, 3, 1, 1]
+                    weights = weights.reshape(1, 3, 1, 1)
+                    
+                    # Apply weighted average
+                    weighted_grayscale = (condition_source * weights).sum(dim=-3, keepdim=True)
+                    d["condition"].append(weighted_grayscale)
+                else:
+                    # During evaluation, use equal weights (mean)
+                    d["condition"].append(condition_source.mean(-3, keepdim=True))
             if ct == "edge":
                 grey = condition_source.mean(-3, keepdim=True)
                 output_horizontal = torch.nn.functional.conv2d(
