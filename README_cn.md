@@ -33,15 +33,15 @@ DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成�
 ## Getting started with MNIST demo
 
 
-# Let's train a DDN with 
+# Let's train a DDN in 8 GPUs
 
 ## Requirements
 DDN 的实现是基于 [NVlabs/EDM](https://github.com/NVlabs/edm) codebase 修改而来。配置和 NVlabs/EDM 相同。
 
-目前仅在 Linux + 2080Ti/A800 GPU 上通过测试
+目前在 Linux 系统， 8 x 2080Ti/A800 GPU 上通过测试
 
 
-## Getting started
+## Inference
 
 
 

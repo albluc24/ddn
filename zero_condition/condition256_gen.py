@@ -22,17 +22,17 @@ pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout
 # pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-045159.pkl"
 pklp = "../../asset/v32-init-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-025088.pkl"
 pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-087809.pkl"
-pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-070246.pkl"
-pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-122931.pkl"
+pklp = "../../asset/v32-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-200000.pkl"
+
+# pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-070246.pkl"
+# pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-122931.pkl"
 # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-047667.pkl"
 # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-092826.pkl"
 
 
-from torchvision.transforms.functional import InterpolationMode
-                                     
 img_dir = '/home/yl/dataset/ffhq/test_self/test_self'
 # img_dir = '/home/yl/dataset/ffhq/ffhq_small_test'
-img_dir = '/home/yl/dataset/ffhq/ffhq_small_test2'
+# img_dir = '/home/yl/dataset/ffhq/ffhq_small_test2'
 # img_dir = '/home/yl/dataset/ffhq/celeba_small_test'
 # img_dir = '/home/yl/dataset/ishape/ishape_dataset/wire/val/image'
 # img_dir = '/tmp/a'
@@ -65,9 +65,10 @@ d = net(d_init)
 del d['outputs']
 
 # tree-d
-
 # shows(d['condition_source'], d['predict'], d['condition'], t2rgb, png=True)
 shows(d['condition'][:len(d['condition'])//samples_per_condition ], d['predict'], t2rgb, png=True)
+soureces = d['condition_source'][:len(d['condition'])//samples_per_condition ]
+show(soureces, t2rgb)
 
 if __name__ == "__main__":
     pass
