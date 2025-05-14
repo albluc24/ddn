@@ -535,6 +535,14 @@ def parse_int_list(s):
     default=False,
     show_default=True,
 )
+@click.option(
+    "--fid_ref",
+    help="fid ref path e.g. fid-refs/cifar10-32x32.npz",
+    metavar="PATH",
+    type=str,
+    default=None,
+    show_default=True,
+)
 def main(
     network_pkl,
     outdir,
@@ -584,7 +592,7 @@ def main(
         if outdir.endswith("/generate")
         else os.path.abspath(outdir) + "-vis.png"
     )
-    eval_dir = visp[:-5]
+    eval_dir = visp.replace("-vis.png", '')
 
     sampler_cmd = "" if (sampler is None or sampler == "none") else sampler
     sampler_prefix = sampler_cmd and (f"sampler.{sampler_cmd}-")
@@ -802,20 +810,22 @@ def main(
 
         import fid
 
-        ref_path = "fid-refs/cifar10-32x32.npz"
-        if boxx.cf.kwargs:
-            ref_path = (
-                boxx.cf.kwargs["data"].replace("datasets/", "fid-refs/")[:-3] + "npz"
+        if  sampler_kwargs.get("fid_ref", None):
+            fid_argkws = dict(
+                ref_path=sampler_kwargs["fid_ref"],
+                image_path=outdir,
+                num_expected=min(len(seeds), 50000),
+                seed=0,
+                batch=max_batch_size,
             )
-        fid_argkws = dict(
-            ref_path=ref_path,
-            image_path=outdir,
-            num_expected=min(len(seeds), 50000),
-            seed=0,
-            batch=max_batch_size,
-        )
-        dist.print0("fid_argkws:", fid_argkws)
-        fid = fid.calc_fid(**fid_argkws)
+            dist.print0("fid_argkws:", fid_argkws)
+            fid = fid.calc_fid(**fid_argkws)
+        else:
+            dist.print0("fid_argkws:", fid_argkws)
+            fid = fid_argkws = {
+                "fid": -1,
+                "info": "no fid ref",
+            }
         if dist.get_rank() == 0:
             kimg = ([-1] + boxx.findints(os.path.basename(network_pkl)))[-1]
             os.makedirs(eval_dir, exist_ok=True)

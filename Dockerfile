@@ -11,8 +11,8 @@ RUN pip install -r /requirements.txt
 ENTRYPOINT []
 
 # build docker image
-# docker build --network=host -t ddn .
+# docker build --network=host -t diyer22/ddn .
 # 
 # run docker container
-# docker run -it --gpus all --net=host -v `pwd`:/workspace -v /home/yl/ws/ddn/asset/v15-00023-ffhq-64x64-blockn64_outputk64_chain.dropout0.05-shot-117913.pkl:/share/ddn.pkl -v /tmp/share:/share ddn python generate.py --debug 0 --batch=3 --seeds=0-15 --network /share/ddn.pkl
+# docker run -it --gpus all --net=host -v `pwd`:/workspace -v /home/yl/ws/ddn/asset/v15-00023-ffhq-64x64-blockn64_outputk64_chain.dropout0.05-shot-117913.pkl:/share/ddn.pkl -v /tmp/share:/share diyer22/ddn python generate.py --debug 0 --batch=3 --seeds=0-15 --network /share/ddn.pkl
 # 
