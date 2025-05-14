@@ -26,19 +26,26 @@ pklp = "../../asset/v32-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_
 
 # pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-070246.pkl"
 # pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-122931.pkl"
+pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
 # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-047667.pkl"
 # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-092826.pkl"
+# pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-200000.pkl"
 
 
+net = sys._getframe(6).f_globals.get("net")  # for ipython, to avoid loading weight again
+if net is None:
+    print('loading weight')
+    net = load_net(pklp)
+    print(net.model.table())
 img_dir = '/home/yl/dataset/ffhq/test_self/test_self'
-# img_dir = '/home/yl/dataset/ffhq/ffhq_small_test'
+img_dir = '/home/yl/dataset/ffhq/ffhq_small_test'
 # img_dir = '/home/yl/dataset/ffhq/ffhq_small_test2'
 # img_dir = '/home/yl/dataset/ffhq/celeba_small_test'
 # img_dir = '/home/yl/dataset/ishape/ishape_dataset/wire/val/image'
 # img_dir = '/tmp/a'
 dataset = ImageFolderDataset(img_dir)
 samples_per_condition = 3
-# slicee = slice(0,4,)
+slicee = slice(0,4,)
 slicee = slice(-4, None)
 condition_source = tht([dataset[i][0] for i in range(len(dataset))[slicee]]*samples_per_condition).to(torch.float32) / 127.5 - 1
 
@@ -55,11 +62,6 @@ d_init = dict(condition_source=condition_source)
 # d_init['target'] = condition_source*0 + -tht([-1,-1,-1])[...,None,None]
 # d_init['target'] = condition_source[list(range(1, len(condition_source)))+[0]]
 
-net = sys._getframe(6).f_globals.get("net")  # for ipython, to avoid loading weight again
-if net is None:
-    print('loading weight')
-    net = load_net(pklp)
-    print(net.model.table())
 
 d = net(d_init)
 del d['outputs']

@@ -10,7 +10,7 @@
 ICLR 2025 论文的官方 PyTorch 实现
 
 
-## Introduction
+## ▮ Introduction
 我们提出了一种全新的生成模型：离散分布网络（Discrete Distribution Networks），简称 DDN。
 
 DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成模型截然不同：
@@ -30,18 +30,31 @@ DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成�
 ![](https://discrete-distribution-networks.github.io/img/zscg.png)
 
 ---
-## Getting started with MNIST demo
+## ▮ Getting started with MNIST demo
 
 
-# Let's train a DDN in 8 GPUs
+## ▮ 环境准备
+DDN 的实现是基于 [NVlabs/EDM](https://github.com/NVlabs/edm) codebase 修改而来。配置和 NVlabs/EDM 相同。目前在 Linux 系统， 8 x 2080Ti/A800 GPU 上通过测试。
 
-## Requirements
-DDN 的实现是基于 [NVlabs/EDM](https://github.com/NVlabs/edm) codebase 修改而来。配置和 NVlabs/EDM 相同。
+我们提供两种环境安装方案
+1. Docker
+2. pip
 
-目前在 Linux 系统， 8 x 2080Ti/A800 GPU 上通过测试
+### Docker
+```bash
+docker build --network=host -t diyer22/ddn .
+docker run -it --gpus all --net=host -v `pwd`:/workspace 
+```
 
 
-## Inference
+## ▮ Inference
+
+### Zero-Shot Conditional Generation
+
+
+## ▮ Train
+
+
 
 
 
