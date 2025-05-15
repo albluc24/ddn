@@ -35,13 +35,11 @@ See:
 
 The core algorithm implementation of DDN is separately housed in the library [**sddn**](https://github.com/diyer22/sddn) for isolation and reuse. Additionally, **`sddn`** includes simple experiments (2D toy data generation and MNIST example).
 
-To run more complex DDN experiments (CIFAR, FFHQ), we integrated DDN with the [NVlabs/EDM](https://github.com/NVlabs/edm) codebase, resulting in this repository. Therefore, the usage of this repo is almost identical to NVlabs/EDM.
+To run more complex DDN experiments (CIFAR, FFHQ), we integrated DDN with the [NVlabs/EDM](https://github.com/NVlabs/edm) codebase, resulting in this repository. Therefore, the usage of this repo is almost identical to `NVlabs/EDM`.
 
 
 ## ▮ Preparing
-We provide two environment setup options:
-1. pip
-2. Docker
+We provide two environment setup options: `pip` and `docker`
 
 ### pip
 Please install the appropriate [PyTorch](https://pytorch.org/get-started/locally/) version according to your CUDA version first
@@ -51,8 +49,8 @@ cd discrete_distribution_networks
 pip install -r requirements.txt
 ```
 
-### Docker
-First install [Docker](https://docs.docker.com/get-started/) and [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+### docker
+First install [docker](https://docs.docker.com/get-started/) and [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 ```bash
 git clone https://github.com/DIYer22/discrete_distribution_networks.git
 cd discrete_distribution_networks
@@ -78,7 +76,7 @@ More pre-trained weights download links are available in [weights/README.md](wei
 
 
 ## ▮ Train
-The dataset preparation process is the same as NVlabs/edm. Please follow [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) to prepare training datasets and fid-refs
+The dataset preparation process is the same as `NVlabs/edm`. Please follow [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) to prepare training datasets and fid-refs
 
 ```bash
 # train CIFAR10 DDN on 8 x A100(80GB)

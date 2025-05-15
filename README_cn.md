@@ -35,13 +35,11 @@ DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成�
 
 DDN 核心算法的代码实现单独放在了库 [**sddn**](https://github.com/diyer22/sddn) 中，以方便隔离和复用。此外，**`sddn`** 也包括了简单的实验 (2D toy data generation and MNIST example).
 
-为了跑更复杂的 DDN 实验 (CIFAR、FFHQ)，我们在 [NVlabs/EDM](https://github.com/NVlabs/edm) 的 codebase 上整合了 DDN，从而诞生本 repo。所以本 repo 的用法和 NVlabs/EDM 几乎一致。
+为了跑更复杂的 DDN 实验 (CIFAR、FFHQ)，我们在 [NVlabs/EDM](https://github.com/NVlabs/edm) 的 codebase 上整合了 DDN，从而诞生本 repo。所以本 repo 的用法和 `NVlabs/EDM` 几乎一致。
 
 
 ## ▮ Preparing
-我们提供两种环境安装方案
-1. pip
-2. Docker
+我们提供两种环境安装方案: `pip` 和 `docker`
 
 ### pip
 请先根据你的 CUDA 版本安装对应的 [PyTorch](https://pytorch.org/get-started/locally/)
@@ -51,8 +49,8 @@ cd discrete_distribution_networks
 pip install -r requirements.txt
 ```
 
-### Docker
-首先安装好 [Docker](https://docs.docker.com/get-started/) 和 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+### docker
+首先安装好 [docker](https://docs.docker.com/get-started/) 和 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 ```bash
 git clone https://github.com/DIYer22/discrete_distribution_networks.git
 cd discrete_distribution_networks
@@ -77,7 +75,7 @@ python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn
 
 
 ## ▮ Train
-数据集准备流程和 NVlabs/edm 一样, 请根据 [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) 来准备 training datasets 和 fid-refs
+数据集准备流程和 `NVlabs/edm` 一样, 请根据 [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) 来准备 training datasets 和 fid-refs
 
 ```bash
 # train CIFAR10 DDN on 8 x A100(80GB)
