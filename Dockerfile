@@ -5,10 +5,12 @@ ENV PYTHONUNBUFFERED 1
 
 RUN apt update && apt install -y git curl net-tools tmux tree htop
 RUN pip install --no-cache-dir boxx ipython
+RUN mkdir -m 777 /.cache
 COPY requirements.txt /requirements.txt
-RUN pip install -r /requirements.txt
+RUN pip install -r /requirements.txt --no-cache-dir
 
 ENTRYPOINT []
+CMD ["/bin/bash"]
 
 # build docker image
 # docker build --network=host -t diyer22/ddn .
