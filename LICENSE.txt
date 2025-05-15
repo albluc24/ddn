@@ -1,7 +1,10 @@
-Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+Copyright (c) 2025, Lei Yang. All rights reserved.
 
 Attribution-NonCommercial-ShareAlike 4.0 International
 
+Based on work by NVIDIA CORPORATION & AFFILIATES.
+
+Licensed under Attribution-NonCommercial-ShareAlike 4.0 International
 =======================================================================
 
 Creative Commons Corporation ("Creative Commons") is not a law firm and
