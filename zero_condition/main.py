@@ -366,7 +366,6 @@ class EdgeSampler:
         hh, ww = self.target.shape[-2:]
         target_resized = self.target
         if (h, w) not in self.cache and h > 600:
-
             # raw_resized = nn.functional.interpolate(
             #     self.raw[None], (h, w), mode="area"
             # )
@@ -788,7 +787,6 @@ classi2name = {
     9: "truck",
 }
 if __name__ == "__main__":
-
     datapath = "../../asset/outputs-cifar.pt"
     datapath = "../../asset/outputs-ffhq64.pt"
     train_imgs = torch.load(datapath).cuda()

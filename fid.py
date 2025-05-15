@@ -245,9 +245,11 @@ def calc_fid(image_path, ref_path, num_expected=50000, seed=0, batch=64):
 )
 def ref(dataset_path, dest_path, batch):
     """Calculate dataset reference statistics needed by 'calc'."""
-    print("""Warning!!! Creating fid ref often fails mysteriously. Recommendations:
+    print(
+        """Warning!!! Creating fid ref often fails mysteriously. Recommendations:
 1. Set `--batch` to a small value that is a divisor of `len(dataset)`
-2. Try multiple times""")
+2. Try multiple times"""
+    )
     torch.multiprocessing.set_start_method("spawn", force=True)
     dist.init()
 

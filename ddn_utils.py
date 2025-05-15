@@ -24,7 +24,7 @@ debug = (
 )
 
 if "debug" in argkv:
-    debug = str(argkv.get("debug")).lower() in ['1', "true", "t", "y", "yes"]
+    debug = str(argkv.get("debug")).lower() in ["1", "true", "t", "y", "yes"]
 
 
 from boxx import tprgb, show, np, npa

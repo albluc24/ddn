@@ -592,7 +592,7 @@ def main(
         if outdir.endswith("/generate")
         else os.path.abspath(outdir) + "-vis.png"
     )
-    eval_dir = visp.replace("-vis.png", '')
+    eval_dir = visp.replace("-vis.png", "")
 
     sampler_cmd = "" if (sampler is None or sampler == "none") else sampler
     sampler_prefix = sampler_cmd and (f"sampler.{sampler_cmd}-")
@@ -810,7 +810,7 @@ def main(
 
         import fid
 
-        if  sampler_kwargs.get("fid_ref", None):
+        if sampler_kwargs.get("fid_ref", None):
             fid_argkws = dict(
                 ref_path=sampler_kwargs["fid_ref"],
                 image_path=outdir,
@@ -871,7 +871,8 @@ if __name__ == "__main__":
     import boxx
     from boxx.ylth import *
     from ddn_utils import debug, argkv
-    print('debug', debug)
+
+    print("debug", debug)
     if not debug:
         main()
     else:
@@ -891,8 +892,8 @@ if __name__ == "__main__":
                 # "--markov=../asset/sampler.train-ddn_latents_l63_n50000.pt",
             ]
         )
-        
-        #%%
+
+        # %%
         dataset_obj = dnnlib.util.construct_class_by_name(
             **{
                 "class_name": "training.dataset.ImageFolderDataset",

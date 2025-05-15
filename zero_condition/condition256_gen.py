@@ -9,7 +9,8 @@ Created on Fri May  9 12:56:20 2025
 import os
 import boxx
 from boxx import *
-sys.path.append('..')
+
+sys.path.append("..")
 with inpkg():
     from .main import *
     from ..ddn_utils import *
@@ -32,29 +33,52 @@ pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_
 # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-200000.pkl"
 
 
-net = sys._getframe(6).f_globals.get("net")  # for ipython, to avoid loading weight again
+net = sys._getframe(6).f_globals.get(
+    "net"
+)  # for ipython, to avoid loading weight again
 if net is None:
-    print('loading weight')
+    print("loading weight")
     net = load_net(pklp)
     print(net.model.table())
-img_dir = '/home/yl/dataset/ffhq/test_self/test_self'
-img_dir = '/home/yl/dataset/ffhq/ffhq_small_test'
-img_dir = '/home/yl/dataset/ffhq/ffhq_small_test2'
+img_dir = "/home/yl/dataset/ffhq/test_self/test_self"
+img_dir = "/home/yl/dataset/ffhq/ffhq_small_test"
+img_dir = "/home/yl/dataset/ffhq/ffhq_small_test2"
 # img_dir = '/home/yl/dataset/ffhq/celeba_small_test'
 # img_dir = '/home/yl/dataset/ishape/ishape_dataset/wire/val/image'
 # img_dir = '/tmp/a'
 dataset = ImageFolderDataset(img_dir)
 samples_per_condition = 3
-slicee = slice(0,4,)
+slicee = slice(
+    0,
+    4,
+)
 slicee = slice(-4, None)
-condition_source = tht([dataset[i][0] for i in range(len(dataset))[slicee]]*samples_per_condition).to(torch.float32) / 127.5 - 1
+condition_source = (
+    tht(
+        [dataset[i][0] for i in range(len(dataset))[slicee]] * samples_per_condition
+    ).to(torch.float32)
+    / 127.5
+    - 1
+)
 
 # resize
 # condition_source = resize(condition_source, 256, 'bicubic')
 # condition_source = resize(condition_source, 256, 'area')
-width, height = 256,256
-import PIL.Image   
-condition_source = torch.cat([uint8_to_tensor(np.array(PIL.Image.fromarray(arr, "RGB").resize((width, height), PIL.Image.Resampling.LANCZOS)))[None] for arr in t2rgb(condition_source)])
+width, height = 256, 256
+import PIL.Image
+
+condition_source = torch.cat(
+    [
+        uint8_to_tensor(
+            np.array(
+                PIL.Image.fromarray(arr, "RGB").resize(
+                    (width, height), PIL.Image.Resampling.LANCZOS
+                )
+            )
+        )[None]
+        for arr in t2rgb(condition_source)
+    ]
+)
 
 
 d_init = dict(condition_source=condition_source)
@@ -64,12 +88,17 @@ d_init = dict(condition_source=condition_source)
 
 
 d = net(d_init)
-del d['outputs']
+del d["outputs"]
 
 # tree-d
 # shows(d['condition_source'], d['predict'], d['condition'], t2rgb, png=True)
-shows(d['condition'][:len(d['condition'])//samples_per_condition ], d['predict'], t2rgb, png=True)
-soureces = d['condition_source'][:len(d['condition'])//samples_per_condition ]
+shows(
+    d["condition"][: len(d["condition"]) // samples_per_condition],
+    d["predict"],
+    t2rgb,
+    png=True,
+)
+soureces = d["condition_source"][: len(d["condition"]) // samples_per_condition]
 show(soureces, t2rgb)
 
 if __name__ == "__main__":

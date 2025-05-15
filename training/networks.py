@@ -1061,12 +1061,14 @@ class ConditionProcess(torch.nn.Module):
                     # Generate random weights for RGB channels that sum to 1
                     weights = torch.rand(3, device=condition_source.device)
                     weights = weights / weights.sum()  # normalize weights to sum to 1
-                    
+
                     # Reshape weights for broadcasting: [3] -> [1, 3, 1, 1]
                     weights = weights.reshape(1, 3, 1, 1)
-                    
+
                     # Apply weighted average
-                    weighted_grayscale = (condition_source * weights).sum(dim=-3, keepdim=True)
+                    weighted_grayscale = (condition_source * weights).sum(
+                        dim=-3, keepdim=True
+                    )
                     d["condition"].append(weighted_grayscale)
                 else:
                     # During evaluation, use equal weights (mean)
