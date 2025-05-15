@@ -1,4 +1,6 @@
 ﻿# Customized
+training-runs
+fid-refs
 *.jpg
 *.png
 tmp_*
