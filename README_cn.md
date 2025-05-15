@@ -73,7 +73,7 @@ python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn
 # Generating 100 images to "weights/generate"...
 # Save vis to: weights/cifar-ddn-vis.png
 ```
-更多的权重下载地址在 [weights/README.md](weights/README.md)
+更多 pre-trained 权重下载地址在 [weights/README.md](weights/README.md)
 
 
 ## ▮ Train
@@ -83,8 +83,8 @@ python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn
 # train CIFAR10 DDN on 8 x A100(80GB)
 torchrun --standalone --nproc_per_node=8 train.py --data datasets/cifar10-32x32.zip --fp16=1 --outdir=training-runs --batch-gpu=256 --batch=2048 --desc=cifar_fp16_blockn32_outputk64_chain.dropout0.05 --chain-dropout 0.05 --max-blockn=32 --max-outputk 64
 
-# evaluation, if len(seeds)==50000 will auto calculating FID.
-torchrun --standalone --nproc_per_node=8 generate.py --seeds=0-49999 --subdirs --batch 128 --network training-runs/00000-cifar10-32x32-cifar_fp16_blockn32_outputk64_chain.dropout0.05/shot-200000.pkl --fid_ref fid-refs/cifar10-32x32.npz
+# evaluation using 2 GPUs, if len(seeds)==50000 will auto calculating FID.
+torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs --batch 128 --network training-runs/00000-cifar10-32x32-cifar_fp16_blockn32_outputk64_chain.dropout0.05/shot-200000.pkl --fid_ref fid-refs/cifar10-32x32.npz
 # Calculating FID...
 # 51.856
 # Saving example images tar to: xxx/sample-example.tar

@@ -39,7 +39,7 @@ if net is None:
     print(net.model.table())
 img_dir = '/home/yl/dataset/ffhq/test_self/test_self'
 img_dir = '/home/yl/dataset/ffhq/ffhq_small_test'
-# img_dir = '/home/yl/dataset/ffhq/ffhq_small_test2'
+img_dir = '/home/yl/dataset/ffhq/ffhq_small_test2'
 # img_dir = '/home/yl/dataset/ffhq/celeba_small_test'
 # img_dir = '/home/yl/dataset/ishape/ishape_dataset/wire/val/image'
 # img_dir = '/tmp/a'

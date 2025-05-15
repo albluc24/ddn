@@ -831,7 +831,7 @@ def main(
             os.makedirs(eval_dir, exist_ok=True)
             tmp_tar = "/run/ddn.tar"
             tar_path = os.path.join(eval_dir, sampler_prefix + "sample-example.tar")
-            print("Saving example to:", tar_path)
+            print("Saving example images tar to:", tar_path)
             example_paths = sorted(glob(outdir + "/**/*.??g", recursive=True))[:100]
             boxx.zipTar(example_paths, tmp_tar)
             copy_file = lambda src, dst: open(dst, "wb").write(open(src, "rb").read())
@@ -871,7 +871,7 @@ if __name__ == "__main__":
     import boxx
     from boxx.ylth import *
     from ddn_utils import debug, argkv
-
+    print('debug', debug)
     if not debug:
         main()
     else:
