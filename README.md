@@ -5,46 +5,46 @@
 
 <!-- <a href="https://huggingface.co/spaces/"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)"></a> -->
 
-# 离散分布网络
-**全新的生成模型，带来独一无二的能力**
+# Discrete Distribution Networks
+**A novel generative model with simple principles and unique properties**
 
-![](https://discrete-distribution-networks.github.io/img_for_other_repo/ddn-header-cn.png)  
-*左图：DDN 重建过程；右图：DDN 拟合二维分布*
+![](https://discrete-distribution-networks.github.io/img_for_other_repo/ddn-header-en.png)  
+*Left: DDN reconstruction process; Right: DDN fitting a 2D distribution*
 
 ## ▮ Introduction
-我们提出了一种全新的生成模型：离散分布网络（Discrete Distribution Networks），简称 DDN。
+We introduce a novel generative model: Discrete Distribution Networks (DDN).
 
-DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成模型截然不同：
-1. 模型在一次前向过程中同时生成多个输出，而不仅仅是一个输出。
-2. 利用这些一次性生成的多个输出来拟合训练数据的目标分布。
-3. 这些输出共同表示一个离散分布，这也是“离散分布网络”名称的由来。
+DDN employs a simple yet unique approach to model the target distribution, distinctly different from mainstream generative models:
+1. The model generates multiple outputs simultaneously in a single forward pass, rather than just one output.
+2. It utilizes these simultaneously generated outputs to fit the target distribution of the training data.
+3. These outputs collectively represent a discrete distribution, which is the origin of the name "Discrete Distribution Networks."
 
-每个生成模型都有其独特的特性，DDN 也不例外。我们将重点介绍 DDN 的两个特有能力：
-- 无需计算梯度即可实现 零样本条件生成（Zero-Shot Conditional Generation）。
-- 具有树状结构的一维离散潜变量（Tree-Structured 1D Discrete Latent）。
+Every generative model has its unique characteristics, and DDN is no exception. We will highlight two distinctive capabilities of DDN:
+- Zero-Shot Conditional Generation without gradient computation.
+- Tree-Structured 1D Discrete Latent variables.
 
-参见：
+See:
 - Paper: https://arxiv.org/abs/2401.00036  
 - Page: https://discrete-distribution-networks.github.io/
 
 
 ![](https://discrete-distribution-networks.github.io/img/zscg.png)  
-*DDN 的特色：零样本条件生成*
+*DDN's feature: Zero-Shot Conditional Generation*
 
 ---
 
-DDN 核心算法的代码实现单独放在了库 [**sddn**](https://github.com/diyer22/sddn) 中，以方便隔离和复用。此外，**`sddn`** 也包括了简单的实验 (2D toy data generation and MNIST example).
+The core algorithm implementation of DDN is separately housed in the library [**sddn**](https://github.com/diyer22/sddn) for isolation and reuse. Additionally, **`sddn`** includes simple experiments (2D toy data generation and MNIST example).
 
-为了跑更复杂的 DDN 实验 (CIFAR、FFHQ)，我们在 [NVlabs/EDM](https://github.com/NVlabs/edm) 的 codebase 上整合了 DDN，从而诞生本 repo。所以本 repo 的用法和 NVlabs/EDM 几乎一致。
+To run more complex DDN experiments (CIFAR, FFHQ), we integrated DDN with the [NVlabs/EDM](https://github.com/NVlabs/edm) codebase, resulting in this repository. Therefore, the usage of this repo is almost identical to NVlabs/EDM.
 
 
 ## ▮ Preparing
-我们提供两种环境安装方案
+We provide two environment setup options:
 1. pip
 2. Docker
 
 ### pip
-请先根据你的 CUDA 版本安装对应的 [PyTorch](https://pytorch.org/get-started/locally/)
+Please install the appropriate [PyTorch](https://pytorch.org/get-started/locally/) version according to your CUDA version first
 ```bash
 git clone https://github.com/DIYer22/discrete_distribution_networks.git
 cd discrete_distribution_networks
@@ -52,12 +52,12 @@ pip install -r requirements.txt
 ```
 
 ### Docker
-首先安装好 [Docker](https://docs.docker.com/get-started/) 和 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+First install [Docker](https://docs.docker.com/get-started/) and [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 ```bash
 git clone https://github.com/DIYer22/discrete_distribution_networks.git
 cd discrete_distribution_networks
 docker build --network=host -t diyer22/ddn .
-# 进入 docker 环境
+# Enter the docker environment
 docker run -it --gpus all --net=host -v `pwd`:/workspace --user $(id -u):$(id -g) diyer22/ddn bash
 ```
 
@@ -65,19 +65,20 @@ docker run -it --gpus all --net=host -v `pwd`:/workspace --user $(id -u):$(id -g
 ## ▮ Inference
 ```bash
 # cd discrete_distribution_networks
-# 下载训练好的 CIFAR 权重
-wget -O weights/cifar-ddn.pkl http://113.44.140.251:9000/ddn/weights/v15-00035-cifar10-32x32-cifar_blockn32_outputk64_chain.dropout0.05_fp32_goon.v15.22-shot-087808.pkl
+# Download pre-trained CIFAR weights
+wget -O weights/cifar-ddn.pkl http://out.diyer22.com:9000/ddn/weights/v15-00035-cifar10-32x32-cifar_blockn32_outputk64_chain.dropout0.05_fp32_goon.v15.22-shot-087808.pkl
+# Backup URL: http://113.44.140.251:9000/ddn/weights/v15-00035-cifar10-32x32-cifar_blockn32_outputk64_chain.dropout0.05_fp32_goon.v15.22-shot-087808.pkl
 
-# Inference 生成图片
+# Generate images using inference
 python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn.pkl
 # Generating 100 images to "weights/generate"...
 # Save vis to: weights/cifar-ddn-vis.png
 ```
-更多 pre-trained 权重下载地址在 [weights/README.md](weights/README.md)
+More pre-trained weights download links are available in [weights/README.md](weights/README.md)
 
 
 ## ▮ Train
-数据集准备流程和 NVlabs/edm 一样, 请根据 [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) 来准备 training datasets 和 fid-refs
+The dataset preparation process is the same as NVlabs/edm. Please follow [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) to prepare training datasets and fid-refs
 
 ```bash
 # train CIFAR10 DDN on 8 x A100(80GB)
@@ -109,5 +110,4 @@ torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs -
   booktitle = {The Thirteenth International Conference on Learning Representations},
   year      = {2025},
   url       = {https://openreview.net/forum?id=xNsIfzlefG}}
-```
-
+``` 
