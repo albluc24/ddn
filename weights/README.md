@@ -1,4 +1,4 @@
-# weights readme
+# Weights README
 
 Weights URL: http://113.44.140.251:9000/ddn/weights/
 
