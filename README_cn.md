@@ -6,25 +6,49 @@
 
 <!-- <a href="https://huggingface.co/spaces/"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)"></a> -->
 
-# 离散分布网络
+
+<div align="center">
+
+<p style="font-size: 2em; font-weight: bold; margin-top: 20px; margin-bottom: 7px; line-height: 1;">离散分布网络</p>
+
 **全新的生成模型，带来独一无二的能力**
 
-<div style="margin-top:0px;font-size:25px;display: flex;align-items: center;">
-  <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
-    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:200px">
+<div style="margin-top:px;font-size:px"> 机构：
+  <a target="_blank" href="https://www.stepfun.com/">
+    <img src="https://discrete-distribution-networks.github.io/img/logo-StepFun.png" style="height:20px">
   </a>
-    &nbsp;&nbsp;&nbsp;
-  <a target="_blank" href="https://discrete-distribution-networks.github.io/">
-    <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
-  </a><br><br><br>
+    &nbsp;
+  <a target="_blank" href="https://en.megvii.com/megvii_research">
+    <img src="https://discrete-distribution-networks.github.io/img/logo-Megvii.png" style="height:20px">
+  </a>
 </div>
 
 
+<br>
+<div align="center">
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/">
+    <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
+  </a>
+  <small><br>DDN 做二维概率密度估计<br>左：生成样本；右：概率密度GT</small>
+</div>
+<br>
+</div>
+
 <!-- ![SVG](docs/draft/header.svg) -->
 
-*左图：DDN 重建过程；右图：DDN 拟合二维分布*
-
+本代码仓库为 ICLR 2025 论文的官方 PyTorch 实现.
 ## ▮ Introduction
+
+<div align="center">
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
+    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:250px">
+  </a>
+  <br>
+  <small>DDN 重建过程示意图</small>
+</div>
+<br>
+  
+
 我们提出了一种全新的生成模型：离散分布网络（Discrete Distribution Networks），简称 DDN。
 
 DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成模型截然不同：
