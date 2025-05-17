@@ -9,7 +9,9 @@
 
 <div align="center">
 
-<p style="font-size: 2em; font-weight: bold; margin-top: 20px; margin-bottom: 7px; line-height: 1;">离散分布网络</p>
+<!-- <p style="font-size: 2em; font-weight: bold; margin-top: 20px; margin-bottom: 7px; line-height: 1;">离散分布网络</p> -->
+
+# ☯ 离散分布网络
 
 **全新的生成模型，带来独一无二的能力**
 
