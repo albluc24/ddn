@@ -5,13 +5,48 @@
 
 <!-- <a href="https://huggingface.co/spaces/"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)"></a> -->
 
+<div align="center">
+
+<!-- <p style="font-size: 2em; font-weight: bold; margin-top: 20px; margin-bottom: 7px; line-height: 1;">离散分布网络</p> -->
+
 # Discrete Distribution Networks
 **A novel generative model with simple principles and unique properties**
 
-![](https://discrete-distribution-networks.github.io/img_for_other_repo/ddn-header-en.png)  
-*Left: DDN reconstruction process; Right: DDN fitting a 2D distribution*
+<div style="margin-top:px;font-size:px"> 
+  <a target="_blank" href="https://www.stepfun.com/">
+    <img src="https://discrete-distribution-networks.github.io/img/logo-StepFun.png" style="height:20px">
+  </a>
+    &nbsp;
+  <a target="_blank" href="https://en.megvii.com/megvii_research">
+    <img src="https://discrete-distribution-networks.github.io/img/logo-Megvii.png" style="height:20px">
+  </a>
+</div>
 
+
+<br>
+<div align="center">
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html">
+    <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
+  </a>
+  <small><br>DDN for 2D probability density estimation <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html"><small>[details]</small></a><br>Left: Generated samples; Right: Target probability density</small>
+</div>
+<br>
+</div>
+
+<!-- ![SVG](docs/draft/header.svg) -->
+
+This code repository is the official PyTorch implementation of the ICLR 2025 paper.
 ## ▮ Introduction
+
+<div align="center">
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
+    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:250px">
+  </a>
+  <br>
+  <small>DDN reconstruction process diagram</small>
+</div>
+<br>
+
 We introduce a novel generative model: Discrete Distribution Networks (DDN).
 
 DDN employs a simple yet unique approach to model the target distribution, distinctly different from mainstream generative models:
@@ -112,7 +147,7 @@ torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.z
 - [x] Dockerfile
 - [x] Inference
 - [x] Train
-- [ ] MNIST and 2d toy data
+- [ ] MNIST and 2D toy data
 - [ ] Zero-Shot Conditional Generation
 - [ ] Support CPU inference
 - [ ] Upload weights to HF

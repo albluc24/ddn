@@ -15,7 +15,7 @@
 
 **全新的生成模型，带来独一无二的能力**
 
-<div style="margin-top:px;font-size:px"> 机构：
+<div style="margin-top:px;font-size:px">
   <a target="_blank" href="https://www.stepfun.com/">
     <img src="https://discrete-distribution-networks.github.io/img/logo-StepFun.png" style="height:20px">
   </a>
