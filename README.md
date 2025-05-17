@@ -1,7 +1,7 @@
 <a href="https://discrete-distribution-networks.github.io/"><img src="https://img.shields.io/static/v1?label=Page&message=github.io&color=blue"></a>
 <a href="https://arxiv.org/abs/2401.00036"><img src="https://img.shields.io/badge/arXiv-2401.00036-b31b1b.svg"></a>
 <a href="https://openreview.net/forum?id=xNsIfzlefG"><img src="https://img.shields.io/badge/Accepted-ICLR%202025-brightgreen.svg"></a>
-<a href="README_cn.md"><img src="https://img.shields.io/badge/language-中文-lightgrey.svg"></a>
+<a href="README_cn.md"><img src="https://img.shields.io/badge/Language-中文-lightgrey.svg"></a>
 
 <!-- <a href="https://huggingface.co/spaces/"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)"></a> -->
 
@@ -78,16 +78,33 @@ More pre-trained weights download links are available in [weights/README.md](wei
 ## ▮ Train
 The dataset preparation process is the same as `NVlabs/edm`. Please follow [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) to prepare training datasets and fid-refs
 
+### Training and evaluation
+
 ```bash
-# train CIFAR10 DDN on 8 x A100(80GB)
-torchrun --standalone --nproc_per_node=8 train.py --data datasets/cifar10-32x32.zip --fp16=1 --outdir=training-runs --batch-gpu=256 --batch=2048 --desc=cifar_fp16_blockn32_outputk64_chain.dropout0.05 --chain-dropout 0.05 --max-blockn=32 --max-outputk 64
+# train CIFAR10 DDN on 8 x NVIDIA A100(80GB)
+torchrun --standalone --nproc_per_node=8 train.py --data datasets/cifar10-32x32.zip \
+  --outdir training-runs --batch-gpu=256 --batch=2048 --desc=task_name \
+  --max-blockn=32 --chain-dropout=0.05 --max-outputk=64
 
 # evaluation using 2 GPUs, if len(seeds)==50000 will auto calculating FID.
-torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs --batch 128 --network training-runs/00000-cifar10-32x32-cifar_fp16_blockn32_outputk64_chain.dropout0.05/shot-200000.pkl --fid_ref fid-refs/cifar10-32x32.npz
+torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs \
+  --batch 128 --fid_ref fid-refs/cifar10-32x32.npz \
+  --network training-runs/00000-cifar10-32x32-task_name/shot-200000.pkl
 # Calculating FID...
 # 51.856
 # Saving example images tar to: xxx/sample-example.tar
 # Save vis to: xxx/vis.png
+```
+View parameter descriptions via `python train.py --help` and `python generate.py --help`
+
+### Conditional training for coloring task
+```bash
+torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.zip \
+  --lr=2e-4 --outdir training-runs --batch-gpu=64 --batch=512 --desc=ffhq256_cond.color \
+  --chain-dropout=0.05 --max-outputk=64 --condition=color
+
+# generation with condition
+# TBD
 ```
 
 ## ▮ Misc

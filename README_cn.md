@@ -78,16 +78,32 @@ python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn
 ## ▮ Train
 数据集准备流程和 `NVlabs/edm` 一样, 请根据 [NVlabs/edm#preparing-datasets](https://github.com/NVlabs/edm?tab=readme-ov-file#preparing-datasets) 来准备 training datasets 和 fid-refs
 
+### 训练和测试
 ```bash
-# train CIFAR10 DDN on 8 x A100(80GB)
-torchrun --standalone --nproc_per_node=8 train.py --data datasets/cifar10-32x32.zip --fp16=1 --outdir=training-runs --batch-gpu=256 --batch=2048 --desc=cifar_fp16_blockn32_outputk64_chain.dropout0.05 --chain-dropout 0.05 --max-blockn=32 --max-outputk 64
+# train CIFAR10 DDN on 8 x NVIDIA A100(80GB)
+torchrun --standalone --nproc_per_node=8 train.py --data datasets/cifar10-32x32.zip \
+  --outdir training-runs --batch-gpu=256 --batch=2048 --desc=task_name \
+  --max-blockn=32 --chain-dropout=0.05 --max-outputk=64
 
 # evaluation using 2 GPUs, if len(seeds)==50000 will auto calculating FID.
-torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs --batch 128 --network training-runs/00000-cifar10-32x32-cifar_fp16_blockn32_outputk64_chain.dropout0.05/shot-200000.pkl --fid_ref fid-refs/cifar10-32x32.npz
+torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs \
+  --batch 128 --fid_ref fid-refs/cifar10-32x32.npz \
+  --network training-runs/00000-cifar10-32x32-task_name/shot-200000.pkl
 # Calculating FID...
 # 51.856
 # Saving example images tar to: xxx/sample-example.tar
 # Save vis to: xxx/vis.png
+```
+通过 `python train.py --help` 和 `python generate.py --help` 查看参数说明
+
+### Conditional training for coloring task
+```bash
+torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.zip \
+  --lr=2e-4 --outdir training-runs --batch-gpu=64 --batch=512 --desc=ffhq256_cond.color \
+  --chain-dropout=0.05 --max-outputk=64 --condition=color
+
+# generation with condition
+# TBD
 ```
 
 ## ▮ Misc
