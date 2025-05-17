@@ -22,6 +22,8 @@ else:
 debug = (
     not cudan or torch.cuda.get_device_properties("cuda:0").total_memory / 2**30 < 10
 )
+if "help" in argkv:
+    debug = False
 
 if "debug" in argkv:
     debug = str(argkv.get("debug")).lower() in ["1", "true", "t", "y", "yes"]
