@@ -9,7 +9,24 @@
 # 离散分布网络
 **全新的生成模型，带来独一无二的能力**
 
-![](https://discrete-distribution-networks.github.io/img_for_other_repo/ddn-header-cn.png)  
+<div style="margin-top:0px;font-size:25px;display: flex;align-items: center;">
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
+    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:200px">
+  </a>
+    &nbsp;
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/">
+    <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
+  </a>
+</div>
+
+
+![SVG](docs/draft/header.svg)
+
+
+<img src="docs/draft/header.svg" style="height:">
+
+
+
 *左图：DDN 重建过程；右图：DDN 拟合二维分布*
 
 ## ▮ Introduction
@@ -111,7 +128,7 @@ torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.z
 - [x] Dockerfile
 - [x] Inference
 - [x] Train
-- [ ] MNIST and 2d toy data
+- [ ] MNIST and 2D toy data
 - [ ] Zero-Shot Conditional Generation
 - [ ] Support CPU inference
 - [ ] Upload weights to HF
