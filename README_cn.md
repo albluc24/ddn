@@ -13,19 +13,14 @@
   <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
     <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:200px">
   </a>
-    &nbsp;
+    &nbsp;&nbsp;&nbsp;
   <a target="_blank" href="https://discrete-distribution-networks.github.io/">
     <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
-  </a>
+  </a><br><br><br>
 </div>
 
 
-![SVG](docs/draft/header.svg)
-
-
-<img src="docs/draft/header.svg" style="height:">
-
-
+<!-- ![SVG](docs/draft/header.svg) -->
 
 *左图：DDN 重建过程；右图：DDN 拟合二维分布*
 
