@@ -28,10 +28,10 @@
 
 <br>
 <div align="center">
-  <a target="_blank" href="https://discrete-distribution-networks.github.io/">
+  <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html">
     <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
   </a>
-  <small><br>DDN 做二维概率密度估计<br>左：生成样本；右：概率密度GT</small>
+  <small><br>DDN 做二维概率密度估计 <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html"><small>[详情]</small></a><br>左：生成样本；右：概率密度GT</small>
 </div>
 <br>
 </div>
