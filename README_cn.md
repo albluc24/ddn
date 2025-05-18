@@ -43,7 +43,7 @@
 
 <div align="center">
   <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
-    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:250px">
+    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:250px;width:auto">
   </a>
   <br>
   <small>DDN 重建过程示意图</small>
@@ -72,6 +72,7 @@ DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成�
 
 ---
 
+# DDN 代码教程
 DDN 核心算法的代码实现单独放在了库 [**sddn**](https://github.com/diyer22/sddn) 中，以方便隔离和复用。此外，**`sddn`** 也包括了简单的实验 (2D toy data generation and MNIST example).
 
 为了跑更复杂的 DDN 实验 (CIFAR、FFHQ)，我们在 [NVlabs/EDM](https://github.com/NVlabs/edm) 的 codebase 上整合了 DDN，从而诞生本 repo。所以本 repo 的用法和 `NVlabs/EDM` 几乎一致。

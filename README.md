@@ -28,7 +28,7 @@
   <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html">
     <img src="https://discrete-distribution-networks.github.io/img/frames_bin100_k2000_itern1800_batch40_framen96_2d-density-estimation-DDN.gif" style="height:">
   </a>
-  <small><br>DDN for 2D probability density estimation <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html"><small>[details]</small></a><br>Left: Generated samples; Right: Target probability density</small>
+  <small><br>2D density estimation <a target="_blank" href="https://discrete-distribution-networks.github.io/2d-density-estimation-gif-with-10000-nodes-ddn.html"><small>[details]</small></a><br>Left: All samples; Right: GT density</small>
 </div>
 <br>
 </div>
@@ -40,7 +40,7 @@ This code repository is the official PyTorch implementation of the ICLR 2025 pap
 
 <div align="center">
   <a target="_blank" href="https://discrete-distribution-networks.github.io/img/ddn-intro.png">
-    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:250px">
+    <img src="https://discrete-distribution-networks.github.io/img/ddn-intro.png" style="height:250px;width:auto">
   </a>
   <br>
   <small>DDN reconstruction process diagram</small>
@@ -68,6 +68,7 @@ See:
 
 ---
 
+# DDN Code Tutorial
 The core algorithm implementation of DDN is separately housed in the library [**sddn**](https://github.com/diyer22/sddn) for isolation and reuse. Additionally, **`sddn`** includes simple experiments (2D toy data generation and MNIST example).
 
 To run more complex DDN experiments (CIFAR, FFHQ), we integrated DDN with the [NVlabs/EDM](https://github.com/NVlabs/edm) codebase, resulting in this repository. Therefore, the usage of this repo is almost identical to `NVlabs/EDM`.
