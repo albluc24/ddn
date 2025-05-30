@@ -150,7 +150,7 @@ torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.z
 - [x] Dockerfile
 - [x] Inference
 - [x] Train
-- [ ] MNIST and 2D toy data
+- [x] [MNIST and 2D toy data](https://github.com/DIYer22/sddn?tab=readme-ov-file#-toy-example-for-2d-density-estimation)
 - [ ] Zero-Shot Conditional Generation
 - [ ] Support CPU inference
 - [ ] Upload weights to HF
