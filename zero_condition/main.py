@@ -30,8 +30,8 @@ def topk_sample(probs, topk):
 
 
 class L2Sampler:
-    """only for 1 data, not whole batch, need to BatchedGuidedSampler(sampler)
-    """
+    """only for 1 data, not whole batch, need to BatchedGuidedSampler(sampler)"""
+
     def __init__(self, target):
         self.raw = target  # guided raw format, here is (3, h, w) of torch.cuda.FloatTensor  [-1, 1]
         self.target = target[None]  # process target in __init__
@@ -43,7 +43,7 @@ class L2Sampler:
         probs = nn.functional.softmax(-((rgbs - resized) ** 2).mean([-1, -2, -3]), 0)
         return dict(
             probs=probs,  # K probabilities for sampling
-            idx_k=int(probs.argmax()),   # sampled index
+            idx_k=int(probs.argmax()),  # sampled index
             condition0=self.target,
             condition_source0=self.raw,
         )
