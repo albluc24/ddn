@@ -23,11 +23,13 @@ def get_model():
         return ddn
 
 
-def generate(input_condition_img, editor_value):
+def generate(input_condition_img, editor_value, prompt_value=None):
     tree([input_condition_img, editor_value])
     ddn = get_model()
     d = ddn.coloring_demo_inference(
-        input_condition_img, n_samples=n_samples, guided_rgba=editor_value["composite"]
+        input_condition_img,
+        n_samples=n_samples,
+        guided_rgba=editor_value["layers"][0] if len(editor_value["layers"]) else None,
     )
     stage_last_predicts = d["stage_last_predicts_np"]
     tree(stage_last_predicts)
@@ -43,7 +45,7 @@ def input_condition_img_callback(input_condition_img, editor_value):
 
 
 def flatten_results(results):
-    return sum([results[key] for key in sorted(results)], [])
+    return sum([results[key] for key in sorted(result_blocks)], [])
 
 
 with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
@@ -54,20 +56,34 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
                 width=256,
                 height=256,
             )
+            brush = gr.Brush()
+            brush.colors = [
+                "rgb(39,106,167)",
+                "rgb(251,217,196)",
+                "rgb(255,194,116)",
+                "rgb(229,220,138)",
+                "rgb(203,172,225)",
+            ] + brush.colors
+            brush.default_size = 8
+            brush.default_color = brush.colors[0]
             editor_block = gr.ImageEditor(
-                label="ZSCG condition",
+                label="RGBA guided",
                 type="numpy",
                 crop_size="1:1",
                 width=256,
                 height=256,
+                brush=brush,
+                layers=False,
                 # canvas_size=(256, 256),   # 画布固定为 256×256
                 # fixed_canvas=True,        # 上传 / 更换 background 时自动缩放到画布大小
             )
-            prompt_block = gr.Textbox(
-                label="CLIP prompt for Zero-Shot-Conditional-Generation:"
-            )
+            with gr.Column():
+                prompt_block = gr.Textbox(
+                    label="CLIP prompt for Zero-Shot-Conditional-Generation:"
+                )
 
-    button = gr.Button("generate")
+                button = gr.Button("generate")
+    gr.HTML("<hr>")
     upload_block.change(
         input_condition_img_callback,
         inputs=[upload_block, editor_block],
@@ -83,22 +99,27 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
         format="png",
         # container=False
     )
-    n_samples = 3
-    results = {}
-    gr.Markdown("## Results")
-    gr.Markdown("Each column is a sample, each row is last predict of a stage")
+    n_samples = 9
+    min_size = 256
+    result_blocks = {}
+    # gr.Markdown("## Results")
+    # gr.Markdown("Each column is a sample, each row is last predict of a stage")
     with gr.Row():
         for sample_idx in range(n_samples):
             with gr.Column():
                 for stage_idx in range(9)[::-1]:
                     size = 2**stage_idx
                     key = f"{size}x{size}"
+                    if size < min_size:
+                        continue
                     result_image = gr.Image(
                         width=max(80, size + 16), height=size + 2, **clean_img_args
                     )
-                    results[key] = results.get(key, []) + [result_image]
+                    result_blocks[key] = result_blocks.get(key, []) + [result_image]
     button.click(
-        generate, inputs=[upload_block, editor_block], outputs=flatten_results(results)
+        generate,
+        inputs=[upload_block, editor_block],
+        outputs=flatten_results(result_blocks),
     )
 
     example_rgb = boxx.imread(
@@ -109,21 +130,35 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
             -1,
         )
     )
-    gr.HTML("<hr>")
-    with gr.Row() as example1:
-        with gr.Column():
-            example_img_gr1 = gr.Image(
-                example_img, width=64 + 16, height=64 + 2, **clean_img_args
-            )
-        with gr.Column():
-            gr.Markdown("example1: Musk\n\nprompt: None")
-
-    def load_example(example, prompt):
-        example
-
-    example1
+    if 0:
+        gr.HTML("<hr>")
+        with gr.Row() as example1:
+            with gr.Column():
+                example_img_gr1 = gr.Image(
+                    example_img, width=64 + 16, height=64 + 2, **clean_img_args
+                )
+            with gr.Column():
+                gr.Markdown("example1: Musk\n\nprompt: None")
 
     gr.HTML("<hr>")
+
+    guided_rgba = example_rgb[:]
+    # guided_rgba[:] = [[255,194,116]]
+    # guided_rgba[:] = [[229,220,138]]
+    guided_rgba[:] = [[203, 172, 225]]
+    mask = np.ones_like(guided_rgba)[..., :1] * 0
+    mask[: len(mask) // 10 :, : len(mask) // 10] = 255
+    guided_rgba = np.concatenate([guided_rgba, mask], axis=-1)
+
+    editor_value_example = dict(
+        background=example_img // 2, layers=[guided_rgba], composite=guided_rgba
+    )
+    gr.Examples(
+        [[example_img, editor_value_example, "null"]],
+        inputs=[upload_block, editor_block, prompt_block],
+        outputs=flatten_results(result_blocks),
+        fn=generate,
+    )
 
 if __name__ == "__main__":
     demo.launch(debug=True, server_name="0.0.0.0")

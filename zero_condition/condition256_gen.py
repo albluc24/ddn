@@ -69,7 +69,7 @@ class DDNInference:
         # resize with PIL
         if img.shape[0] != self.hw[0] or img.shape[1] != self.hw[1]:
             img = PIL.Image.fromarray(img).resize(
-                (self.hw[1], self.hw[0]), PIL.Image.Resampling.LANCZOS
+                (self.hw[1], self.hw[0]), PIL.Image.LANCZOS
             )
             img = np.array(img)
         if img.ndim == 2:
@@ -81,7 +81,7 @@ class DDNInference:
     ):  # all Numpy
         condition_source = self.process_np_img(condition_rgb)
         samplers = []
-        if guided_rgba is not None and guided_rgba[..., -1].sum():
+        if guided_rgba is not None and guided_rgba[..., -1].sum() > 1:
             guided_rgba = self.process_np_img(guided_rgba)
             rgba_sampler = L2SamplerWithAlphaChannelTopk(guided_rgba)
             samplers.append(rgba_sampler)
@@ -89,6 +89,7 @@ class DDNInference:
         if len(samplers) == 1:
             batch_sampler = BatchedGuidedSampler(samplers[0])
             d_init["sampler"] = batch_sampler
+        tree(["d_init", d_init, guided_rgba])
         d = self.net(d_init)
         stage_last_predicts = {
             "%sx%s" % pred.shape[-2:]: pred for pred in d["predicts"]
@@ -113,7 +114,8 @@ if __name__ == "__main__":
     mask = np.ones_like(guided_rgba)[..., :1] * 0
     mask[: len(mask) // 10 :, : len(mask) // 10] = 255
     guided_rgba = np.concatenate([guided_rgba // 2, mask], axis=-1)
-    d = ddn.coloring_demo_inference(condition_rgb, n_samples=1, guided_rgba=guided_rgba)
+    guided_rgba = None
+    d = ddn.coloring_demo_inference(condition_rgb, n_samples=6, guided_rgba=guided_rgba)
     shows(
         condition_rgb,
         guided_rgba,
@@ -182,7 +184,7 @@ if __name__ == "__main__" and 0:
             uint8_to_tensor(
                 np.array(
                     PIL.Image.fromarray(arr, "RGB").resize(
-                        (width, height), PIL.Image.Resampling.LANCZOS
+                        (width, height), PIL.Image.LANCZOS
                     )
                 )
             )[None]
