@@ -89,9 +89,10 @@ with gr.Blocks() as demo:
                     interactive=True,
                     label="CLIP prompt for Zero-Shot-Conditional-Generation:",
                 )
+                gr.HTML("<br><br><br>")
 
                 button = gr.Button("generate")
-    gr.HTML("<hr>")
+    gr.HTML("<hr style='padding:0!important'>", container=False)
     upload_block.change(
         input_condition_img_callback,
         inputs=[upload_block, editor_block],
@@ -174,19 +175,19 @@ with gr.Blocks() as demo:
 
     example_inputs = [
         read_as_example_input(png_path)
-        for png_path in glob.glob("../../ddn_asset/ffhq_example/*.png")
+        for png_path in sorted(glob.glob("../../ddn_asset/ffhq_example/*.png"))
     ]
     gr.Examples(
         # [[example_img, editor_value_example, "null"]] +
-        [
+        example_inputs
+        + [
             [
                 *read_as_example_input("../../ddn_asset/ffhq_example/FFHQ-test5.png")[
                     :2
                 ],
                 "portrait with dark red hair",
             ]
-        ]
-        + example_inputs,
+        ],
         inputs=[upload_block, editor_block, prompt_block],
         outputs=flatten_results(result_blocks),
         fn=generate,
