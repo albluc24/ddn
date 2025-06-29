@@ -12,6 +12,7 @@ import sys
 import PIL.Image
 import numpy as np
 import torch
+import threading
 
 
 from boxx import *
@@ -26,6 +27,7 @@ with inpkg():
 
 class DistanceSamplerWithAlphaChannelTopk:
     def __init__(self, target, topk=2, distance_type="l1"):
+        # TODO try using weighted HSV distance
         self.raw = target  # guided raw format, here is (4, h, w) of torch.cuda.FloatTensor [-1, 1]
         if target.shape[0] == 3:  # process target in __init__
             target = torch.cat([target, target[:1] * 0 + 1], dim=0)
@@ -95,6 +97,31 @@ def crop_and_resize(img: np.ndarray, out_hw=(256, 256)) -> np.ndarray:
     return np.asarray(resized, dtype=img.dtype)
 
 
+clip_model = None
+
+
+def get_clip_model():
+    with threading.Lock():
+        global clip_model
+        if clip_model is None:
+            import clip
+
+            clip_model = clip.load("ViT-B/32", device="cuda")
+        return clip_model
+
+
+class CLIPSamplerWithoutModle(CLIPSampler):
+    def __init__(self, target, clip_model):
+        import clip
+
+        self.raw = target
+        self.model, transform = clip_model
+        # self.model =
+        with torch.no_grad():
+            tokens = clip.tokenize([target]).to("cuda")
+            self.target = self.model.encode_text(tokens)
+
+
 class DDNInference:
     def __init__(self, weight_path, hw=(256, 256)):
         self.net = load_net(weight_path)
@@ -121,6 +148,10 @@ class DDNInference:
             guided_rgba = self.process_np_img(guided_rgba)
             rgba_sampler = DistanceSamplerWithAlphaChannelTopk(guided_rgba)
             samplers.append(rgba_sampler)
+        if clip_prompt is not None and clip_prompt not in ["", "null"]:
+            clip_model = get_clip_model()
+            clip_sampler = CLIPSamplerWithoutModle(clip_prompt, clip_model)
+            samplers.append(clip_sampler)
         d_init = dict(condition_source=torch.cat([condition_source[None]] * n_samples))
         if len(samplers) == 1:
             batch_sampler = BatchedGuidedSampler(samplers[0])
@@ -152,7 +183,14 @@ if __name__ == "__main__":
     mask[: len(mask) // 10 :, : len(mask) // 10] = 255
     guided_rgba = np.concatenate([guided_rgba // 2, mask], axis=-1)
     guided_rgba = None
-    d = ddn.coloring_demo_inference(condition_rgb, n_samples=6, guided_rgba=guided_rgba)
+    clip_prompt = "Portrait with light blue background"
+    clip_prompt = "Portrait of retro tones, warm"
+    clip_prompt = "Blue eyes, red skin, pink background"
+    clip_prompt = "Wasteland style portrait"
+    # clip_prompt = "Portrait, healthy skin tone, dark brown hair"
+    d = ddn.coloring_demo_inference(
+        condition_rgb, n_samples=6, guided_rgba=guided_rgba, clip_prompt=clip_prompt
+    )
     shows(
         condition_rgb,
         guided_rgba,

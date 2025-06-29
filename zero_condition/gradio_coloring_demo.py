@@ -24,12 +24,13 @@ def get_model():
 
 
 def generate(input_condition_img, editor_value, prompt_value=None):
-    tree([input_condition_img, editor_value])
+    tree([input_condition_img, editor_value, prompt_value])
     ddn = get_model()
     d = ddn.coloring_demo_inference(
         input_condition_img,
         n_samples=n_samples,
         guided_rgba=editor_value["layers"][0] if len(editor_value["layers"]) else None,
+        clip_prompt=prompt_value,
     )
     stage_last_predicts = d["stage_last_predicts_np"]
     tree(stage_last_predicts)
@@ -53,7 +54,7 @@ def flatten_results(results):
     return sum([results[key] for key in sorted(result_blocks)], [])
 
 
-with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
+with gr.Blocks() as demo:
     with gr.Row():
         with gr.Row():
             upload_block = gr.Image(
@@ -84,7 +85,9 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
             )
             with gr.Column():
                 prompt_block = gr.Textbox(
-                    label="CLIP prompt for Zero-Shot-Conditional-Generation:"
+                    "",
+                    interactive=True,
+                    label="CLIP prompt for Zero-Shot-Conditional-Generation:",
                 )
 
                 button = gr.Button("generate")
@@ -123,7 +126,7 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
                     result_blocks[key] = result_blocks.get(key, []) + [result_image]
     button.click(
         generate,
-        inputs=[upload_block, editor_block],
+        inputs=[upload_block, editor_block, prompt_block],
         outputs=flatten_results(result_blocks),
     )
 
@@ -157,13 +160,33 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
         background=example_img // 2, layers=[guided_rgba], composite=guided_rgba
     )
 
+    def read_as_input_condition_img(png_path):
+        img = np.uint8(boxx.imread(png_path).mean(-1))
+        return crop_and_resize(img, (H, W))
+
+    def read_as_example_input(png_path):
+        condition_img = read_as_input_condition_img(png_path)
+        return [
+            condition_img,
+            dict(background=condition_img // 2, layers=[], composite=None),
+            "",
+        ]
+
     example_inputs = [
-        [np.uint8(boxx.imread(png_path).mean(-1)), editor_value_example, "null"]
+        read_as_example_input(png_path)
         for png_path in glob.glob("../../ddn_asset/ffhq_example/*.png")
     ]
     gr.Examples(
         # [[example_img, editor_value_example, "null"]] +
-        example_inputs,
+        [
+            [
+                *read_as_example_input("../../ddn_asset/ffhq_example/FFHQ-test5.png")[
+                    :2
+                ],
+                "portrait with dark red hair",
+            ]
+        ]
+        + example_inputs,
         inputs=[upload_block, editor_block, prompt_block],
         outputs=flatten_results(result_blocks),
         fn=generate,
