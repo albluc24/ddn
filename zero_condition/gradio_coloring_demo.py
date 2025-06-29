@@ -5,7 +5,7 @@ from boxx import *
 import time
 import numpy as np
 import gradio as gr
-from condition256_gen import DDNInference
+from condition256_gen import DDNInference, crop_and_resize
 import threading
 
 H, W = 256, 256
@@ -39,8 +39,13 @@ def generate(input_condition_img, editor_value, prompt_value=None):
 def input_condition_img_callback(input_condition_img, editor_value):
     if isinstance(input_condition_img, np.ndarray):
         if input_condition_img.shape[0] != H or input_condition_img.shape[1] != W:
-            input_condition_img = resize(input_condition_img, (H, W))
-    editor_value["background"] = np.uint8(input_condition_img.mean(-1).round())
+            input_condition_img = crop_and_resize(input_condition_img, (H, W))
+    if input_condition_img is None:
+        editor_value["background"] = None
+        editor_value["composite"] = None
+    else:
+        editor_value["background"] = np.uint8(input_condition_img.mean(-1).round())
+        editor_value["composite"] = None
     return editor_value
 
 
@@ -99,14 +104,14 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
         format="png",
         # container=False
     )
-    n_samples = 9
+    n_samples = 12
     min_size = 256
     result_blocks = {}
     # gr.Markdown("## Results")
     # gr.Markdown("Each column is a sample, each row is last predict of a stage")
     with gr.Row():
         for sample_idx in range(n_samples):
-            with gr.Column():
+            with gr.Column(min_width=256):
                 for stage_idx in range(9)[::-1]:
                     size = 2**stage_idx
                     key = f"{size}x{size}"
@@ -122,9 +127,7 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
         outputs=flatten_results(result_blocks),
     )
 
-    example_rgb = boxx.imread(
-        "/home/yl/dataset/ffhq/test_self/test_self/FFHQ-test4.png"
-    )
+    example_rgb = boxx.imread("../../ddn_asset/ffhq_example/FFHQ-test4.png")
     example_img = np.uint8(
         example_rgb.mean(
             -1,
@@ -153,8 +156,14 @@ with gr.Blocks(css=".gr-box{padding:0!important}") as demo:
     editor_value_example = dict(
         background=example_img // 2, layers=[guided_rgba], composite=guided_rgba
     )
+
+    example_inputs = [
+        [np.uint8(boxx.imread(png_path).mean(-1)), editor_value_example, "null"]
+        for png_path in glob.glob("../../ddn_asset/ffhq_example/*.png")
+    ]
     gr.Examples(
-        [[example_img, editor_value_example, "null"]],
+        # [[example_img, editor_value_example, "null"]] +
+        example_inputs,
         inputs=[upload_block, editor_block, prompt_block],
         outputs=flatten_results(result_blocks),
         fn=generate,
