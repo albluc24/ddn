@@ -171,7 +171,7 @@ class DDNInference:
 
 
 if __name__ == "__main__":
-    weight_path = "../../ddn_asset/v32-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-200000.pkl"
+    weight_path = "../../ddn_asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
     ddn = sys._getframe(6).f_globals.get("ddn")
     if ddn is None:
         print("loading weight")
@@ -211,7 +211,7 @@ if __name__ == "__main__" and 0:
     # pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-045159.pkl"
     pklp = "../../asset/v32-init-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-025088.pkl"
     pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-087809.pkl"
-    pklp = "../../ddn_asset/v32-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-200000.pkl"
+    pklp = "../../ddn_asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
 
     # pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-070246.pkl"
     # pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-122931.pkl"

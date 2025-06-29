@@ -18,7 +18,7 @@ def get_model():
         global ddn
         if ddn is None:
             ddn = DDNInference(
-                "../../ddn_asset/v32-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-200000.pkl"
+                "../../ddn_asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
             )
         return ddn
 
