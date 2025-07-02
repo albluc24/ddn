@@ -156,6 +156,11 @@ class DDNInference:
         if len(samplers) == 1:
             batch_sampler = BatchedGuidedSampler(samplers[0])
             d_init["sampler"] = batch_sampler
+        elif len(samplers) > 1:
+            batch_sampler = MultiGuidedSampler(
+                {s: 1/len(samplers) for s in samplers}
+            )
+            d_init["sampler"] = batch_sampler
         tree(["d_init", d_init, guided_rgba])
         d = self.net(d_init)
         stage_last_predicts = {
@@ -165,7 +170,7 @@ class DDNInference:
             k: list(t2rgb(v)) for k, v in stage_last_predicts.items()
         }
         d["stage_last_predicts_np"] = stage_last_predicts_np
-        g()
+        mg()
         # shows(t2rgb(d["predict"]), png=True)
         return d
 
