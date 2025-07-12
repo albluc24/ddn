@@ -85,8 +85,8 @@ with gr.Blocks() as demo:
                 default_rgb,
                 label="input_condition_img",
                 format="png",
-                width=256,
-                height=256,
+                width=W,
+                height=H,
             )
             brush = gr.Brush()
             brush.colors = [
@@ -143,13 +143,13 @@ with gr.Blocks() as demo:
     )
     n_samples = 12
     n_samples_with_clip = 4
-    min_size = 256
+    min_size = W
     result_blocks = {}
     # gr.Markdown("## Results")
     # gr.Markdown("Each column is a sample, each row is last predict of a stage")
     with gr.Row():
         for sample_idx in range(n_samples):
-            with gr.Column(min_width=256):
+            with gr.Column(min_width=W):
                 for stage_idx in range(9)[::-1]:
                     size = 2**stage_idx
                     key = f"{size}x{size}"
@@ -312,15 +312,32 @@ with gr.Blocks() as demo:
         if not frames:
             return None
 
-        # Create GIF in memory and return as PIL Image
+        # Ensure all frames are the same size and high quality
+        # Resize all frames to consistent size if needed
+        target_size = (W, H)
+        processed_frames = []
+        for frame in frames:
+            if frame.size != target_size:
+                # Use high-quality resampling
+                frame = frame.resize(target_size, Image.Resampling.LANCZOS)
+
+            # Convert to RGB if needed (GIF supports RGB)
+            if frame.mode != "RGB":
+                frame = frame.convert("RGB")
+
+            processed_frames.append(frame)
+
+        # Create GIF in memory with improved quality settings
         gif_buffer = io.BytesIO()
-        frames[0].save(
+        processed_frames[0].save(
             gif_buffer,
             format="GIF",
             save_all=True,
-            append_images=frames[1:],
-            duration=500,  # 100ms per frame = 10 fps
+            append_images=processed_frames[1:],
+            duration=500,  # Slower animation for better viewing (500ms = 2 fps)
             loop=0,
+            optimize=False,  # Disable optimization to preserve quality
+            disposal=2,  # Clear frame before next one for better quality
         )
         gif_buffer.seek(0)
 
@@ -334,10 +351,10 @@ with gr.Blocks() as demo:
             convert_gif_button = gr.Button("Convert to GIF", variant="secondary")
         with gr.Column():
             gif_output = gr.Image(
-                label="GIF Animation",
+                label="GIF",
                 type="pil",
-                width=256,
-                height=256,
+                width=W,
+                height=H,
                 interactive=False,
                 show_download_button=True,
                 format="gif",
