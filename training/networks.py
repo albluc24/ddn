@@ -274,9 +274,11 @@ class UNetBlock(torch.nn.Module):
         self.num_heads = (
             0
             if not attention
-            else num_heads
-            if num_heads is not None
-            else out_channels // channels_per_head
+            else (
+                num_heads
+                if num_heads is not None
+                else out_channels // channels_per_head
+            )
         )
         self.dropout = dropout
         self.skip_scale = skip_scale
@@ -661,9 +663,11 @@ class UNetBlockWoEmb(torch.nn.Module):
         self.num_heads = (
             0
             if not attention
-            else num_heads
-            if num_heads is not None
-            else out_channels // channels_per_head
+            else (
+                num_heads
+                if num_heads is not None
+                else out_channels // channels_per_head
+            )
         )
         self.dropout = dropout
         self.skip_scale = skip_scale
@@ -1805,9 +1809,11 @@ class VPPrecond(torch.nn.Module):
         class_labels = (
             None
             if self.label_dim == 0
-            else torch.zeros([1, self.label_dim], device=x.device)
-            if class_labels is None
-            else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            else (
+                torch.zeros([1, self.label_dim], device=x.device)
+                if class_labels is None
+                else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            )
         )
         dtype = (
             torch.float16
@@ -1885,9 +1891,11 @@ class VEPrecond(torch.nn.Module):
         class_labels = (
             None
             if self.label_dim == 0
-            else torch.zeros([1, self.label_dim], device=x.device)
-            if class_labels is None
-            else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            else (
+                torch.zeros([1, self.label_dim], device=x.device)
+                if class_labels is None
+                else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            )
         )
         dtype = (
             torch.float16
@@ -1966,9 +1974,11 @@ class iDDPMPrecond(torch.nn.Module):
         class_labels = (
             None
             if self.label_dim == 0
-            else torch.zeros([1, self.label_dim], device=x.device)
-            if class_labels is None
-            else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            else (
+                torch.zeros([1, self.label_dim], device=x.device)
+                if class_labels is None
+                else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            )
         )
         dtype = (
             torch.float16
@@ -2048,9 +2058,11 @@ class EDMPrecond(torch.nn.Module):
         class_labels = (
             None
             if self.label_dim == 0
-            else torch.zeros([1, self.label_dim], device=x.device)
-            if class_labels is None
-            else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            else (
+                torch.zeros([1, self.label_dim], device=x.device)
+                if class_labels is None
+                else class_labels.to(torch.float32).reshape(-1, self.label_dim)
+            )
         )
         dtype = (
             torch.float16
