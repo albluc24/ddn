@@ -146,6 +146,18 @@ class DDNInference:
         samplers = []
         if guided_rgba is not None and guided_rgba[..., -1].sum() > 1:
             guided_rgba = self.process_np_img(guided_rgba)
+            if "align color brightness":
+                guided_normalized_tensor = (guided_rgba[:3] + 1) / 2
+                brightness_guided = (guided_normalized_tensor).mean(0, keepdim=True)
+                brightness_condition = ((condition_source + 1) / 2).mean(
+                    0, keepdim=True
+                )
+                new_guided_normalized_tensor = (
+                    guided_normalized_tensor
+                    * brightness_condition
+                    / (brightness_guided + 1e-5)
+                )
+                guided_rgba[:3] = new_guided_normalized_tensor.clip(0, 1) * 2 - 1
             rgba_sampler = DistanceSamplerWithAlphaChannelTopk(guided_rgba)
             samplers.append(rgba_sampler)
         if clip_prompt is not None and clip_prompt not in ["", "null"]:
@@ -181,16 +193,17 @@ if __name__ == "__main__":
         ddn = DDNInference(weight_path)
         print(ddn.net.model.table())
     condition_rgb = imread("../../ddn_asset/ffhq_example/FFHQ-test4.png")
-    guided_rgba = condition_rgb[:]
+    guided_rgba = np.uint8(condition_rgb[:] * 0 + [[(255, 0, 0)]])
     mask = np.ones_like(guided_rgba)[..., :1] * 0
     mask[: len(mask) // 10 :, : len(mask) // 10] = 255
     guided_rgba = np.concatenate([guided_rgba // 2, mask], axis=-1)
-    guided_rgba = None
+    # guided_rgba = None
     clip_prompt = "Portrait with light blue background"
     clip_prompt = "Portrait of retro tones, warm"
     clip_prompt = "Blue eyes, red skin, pink background"
     clip_prompt = "Wasteland style portrait"
     # clip_prompt = "Portrait, healthy skin tone, dark brown hair"
+    clip_prompt = ""
     d = ddn.coloring_demo_inference(
         condition_rgb, n_samples=6, guided_rgba=guided_rgba, clip_prompt=clip_prompt
     )
@@ -202,89 +215,3 @@ if __name__ == "__main__":
     )
     # 256png 104.8KB
     # 256jpg 10.7KB
-
-
-if __name__ == "__main__" and 0:
-    pass
-
-    # pklp = "../../asset/v15-00018-ffhq-64x64-blockn64_outputk512_chain.dropout0.05-shot-117913.pkl"
-    d_init = dict(batch_size=2)
-    pklp = "../../asset/v16-00009-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05-shot-055193.pkl"
-    pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-025089.pkl"
-    # pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-045159.pkl"
-    pklp = "../../asset/v32-init-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-025088.pkl"
-    pklp = "../../asset/v32-init-00001-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch128-shot-087809.pkl"
-    pklp = "../../ddn_asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
-
-    # pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-070246.pkl"
-    # pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-122931.pkl"
-    pklp = "../../asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
-    # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-047667.pkl"
-    # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-092826.pkl"
-    # pklp = "../../asset/v32-00004-ffhq-256x256-ffhq256_cond.edge_chain.dropout0.05_batch64_k64-shot-200000.pkl"
-
-    net = sys._getframe(6).f_globals.get(
-        "net"
-    )  # for ipython, to avoid loading weight again
-    if net is None:
-        print("loading weight")
-        net = load_net(pklp)
-        print(net.model.table())
-    img_dir = "/home/yl/dataset/ffhq/test_self/test_self"
-    # img_dir = "/home/yl/dataset/ffhq/ffhq_small_test"
-    img_dir = "/home/yl/dataset/ffhq/ffhq_small_test2"
-    # img_dir = '/home/yl/dataset/ffhq/celeba_small_test'
-    # img_dir = '/home/yl/dataset/ishape/ishape_dataset/wire/val/image'
-    # img_dir = '/tmp/a'
-    dataset = ImageFolderDataset(img_dir)
-    samples_per_condition = 3
-    slicee = slice(
-        0,
-        4,
-    )
-    slicee = slice(-4, None)
-    condition_source = (
-        tht(
-            [dataset[i][0] for i in range(len(dataset))[slicee]] * samples_per_condition
-        ).to(torch.float32)
-        / 127.5
-        - 1
-    )
-
-    # resize
-    # condition_source = resize(condition_source, 256, 'bicubic')
-    # condition_source = resize(condition_source, 256, 'area')
-    width, height = 256, 256
-    import PIL.Image
-
-    condition_source = torch.cat(
-        [
-            uint8_to_tensor(
-                np.array(
-                    PIL.Image.fromarray(arr, "RGB").resize(
-                        (width, height), PIL.Image.LANCZOS
-                    )
-                )
-            )[None]
-            for arr in t2rgb(condition_source)
-        ]
-    )
-
-    d_init = dict(condition_source=condition_source)
-    # d_init['target'] = condition_source
-    # d_init['target'] = condition_source*0 + -tht([-1,-1,-1])[...,None,None]
-    # d_init['target'] = condition_source[list(range(1, len(condition_source)))+[0]]
-
-    d = net(d_init)
-    del d["outputs"]
-
-    # tree-d
-    # shows(d['condition_source'], d['predict'], d['condition'], t2rgb, png=True)
-    shows(
-        d["condition"][: len(d["condition"]) // samples_per_condition],
-        d["predict"],
-        t2rgb,
-        png=True,
-    )
-    soureces = d["condition_source"][: len(d["condition"]) // samples_per_condition]
-    show(soureces, t2rgb)
