@@ -9,6 +9,9 @@ fid-*
 exps/
 *.pkl
 
+# gradio
+.gradio
+
 # ignore
 .vscode
 *.pyc

@@ -14,31 +14,66 @@ H, W = 256, 256
 
 ddn = None
 
+ddn_asset_dir = "../../ddn_asset"
+
 
 def get_model():
     with threading.Lock():
         global ddn
         if ddn is None:
             ddn = DDNInference(
-                "../../ddn_asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
+                f"{ddn_asset_dir}/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
             )
         return ddn
 
 
-def generate(input_condition_img, editor_value, prompt_value=None):
-    tree([input_condition_img, editor_value, prompt_value])
+def generate(example_description, input_condition_img, editor_value, prompt_value=None):
+    tree([example_description, input_condition_img, editor_value, prompt_value])
+    # print("layer sum:", tree(editor_value["layers"]) or editor_value["layers"][0].sum())
     ddn = get_model()
     n = n_samples
     if prompt_value:
         n = n_samples_with_clip
+    guided_rgba = editor_value["layers"][0] if len(editor_value["layers"]) else None
     d = ddn.coloring_demo_inference(
         input_condition_img,
         n_samples=n,
-        guided_rgba=editor_value["layers"][0] if len(editor_value["layers"]) else None,
+        guided_rgba=guided_rgba,
         clip_prompt=prompt_value,
     )
     stage_last_predicts = d["stage_last_predicts_np"]
-    tree(stage_last_predicts)
+    # tree(stage_last_predicts)
+    # dump to /tmp with timestamp for debugging
+    if 0:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        if guided_rgba is not None:
+            boxx.imsave(
+                f"/tmp/condition256_gen_{timestamp}_guided_rgba.png",
+                guided_rgba,
+            )
+            boxx.imsave(
+                f"/tmp/condition256_gen_{timestamp}_background.png",
+                rgba_edit["background"],
+            )
+        if input_condition_img is not None:
+            boxx.imsave(
+                f"/tmp/condition256_gen_{timestamp}_input_condition_img.png",
+                input_condition_img,
+            )
+        if prompt_value:
+            with open(f"/tmp/condition256_gen_{timestamp}_prompt.txt", "w") as f:
+                f.write(prompt_value)
+        # stage_last_predicts is a dict with resolution keys, get the largest resolution
+        largest_resolution_key = max(
+            stage_last_predicts.keys(), key=lambda x: int(x.split("x")[0])
+        )
+        stage_last_predict = stage_last_predicts[largest_resolution_key]
+        for i, img in enumerate(stage_last_predict):
+            if img is not None:
+                boxx.imsave(
+                    f"/tmp/condition256_gen_{timestamp}_stage_last_predict_{i}.png",
+                    img,
+                )
     return flatten_results(stage_last_predicts)
 
 
@@ -50,6 +85,13 @@ def input_condition_img_callback(input_condition_img, editor_value):
         editor_value["background"] = None
         editor_value["composite"] = None
     else:
+        layers = editor_value.get("layers", [])
+        if (
+            len(layers) > 0
+            and layers[0].sum() > 0
+            and layers[0].shape[:2] != input_condition_img.shape[:2]
+        ):  # if the first layer is not empty and has different shape, empty it
+            editor_value["layers"] = []
         editor_value["background"] = np.uint8(input_condition_img.mean(-1).round()) // 2
         editor_value["composite"] = None
     return editor_value
@@ -71,10 +113,18 @@ def read_as_input_condition_img(png_path):
 
 
 with gr.Blocks() as demo:
+    gr.Markdown(
+        """# DDN coloring demo
+- [Discrete Distribution Networks (DDN)](https://discrete-distribution-networks.github.io/) is a **novel generative model** with unique properties.
+- This demo primarily showcases DDN's features through a coloring task, particularly highlighting its **Zero-Shot Conditional Generation (ZSCG)** capability.
+- (Optional) Users can guide generation process using **color strokes** and **CLIP prompts**.
+"""
+    )
+    gr.HTML("<hr style='padding:0!important'>", container=False)
     with gr.Row():
         with gr.Row():
             default_rgb = read_as_input_condition_img(
-                "../../ddn_asset/ffhq_example/FFHQ-test4.png"
+                f"{ddn_asset_dir}/ffhq_example/FFHQ-test4.png"
             )
             default_edit = dict(
                 background=np.uint8(default_rgb.mean(-1)) // 2,
@@ -82,7 +132,7 @@ with gr.Blocks() as demo:
                 composite=None,
             )
             upload_block = gr.Image(
-                default_rgb,
+                np.uint8(default_rgb.mean(-1)),
                 label="input_condition_img",
                 format="png",
                 width=W,
@@ -105,7 +155,7 @@ with gr.Blocks() as demo:
             brush.default_color = brush.colors[0]
             editor_block = gr.ImageEditor(
                 default_edit,
-                label="RGBA guided",
+                label="color stroke",
                 type="numpy",
                 crop_size="1:1",
                 width=256,
@@ -120,13 +170,18 @@ with gr.Blocks() as demo:
                 prompt_block = gr.Textbox(
                     "",
                     interactive=True,
-                    label="CLIP prompt for Zero-Shot-Conditional-Generation:",
+                    label="CLIP prompt:",
+                )
+                description_block = gr.Textbox(
+                    "",
+                    label="description",
+                    visible=False,
                 )
                 gr.HTML("<br><br><br>")
 
                 button = gr.Button("generate")
     gr.HTML("<hr style='padding:0!important'>", container=False)
-    upload_block.change(
+    upload_block.input(
         input_condition_img_callback,
         inputs=[upload_block, editor_block],
         outputs=editor_block,
@@ -161,11 +216,11 @@ with gr.Blocks() as demo:
                     result_blocks[key] = result_blocks.get(key, []) + [result_image]
     button.click(
         generate,
-        inputs=[upload_block, editor_block, prompt_block],
+        inputs=[description_block, upload_block, editor_block, prompt_block],
         outputs=flatten_results(result_blocks),
     )
 
-    example_rgb = boxx.imread("../../ddn_asset/ffhq_example/FFHQ-test4.png")
+    example_rgb = boxx.imread(f"{ddn_asset_dir}/ffhq_example/FFHQ-test4.png")
     example_img = np.uint8(
         example_rgb.mean(
             -1,
@@ -195,13 +250,31 @@ with gr.Blocks() as demo:
         background=example_img // 2, layers=[guided_rgba], composite=guided_rgba
     )
 
-    def read_as_example_input(png_path):
+    def read_as_example_input(png_path, guided_path=None):
         condition_img = read_as_input_condition_img(png_path)
+        background = np.uint8(condition_img.mean(-1)) // 2
+        if guided_path is None:
+            layers = []
+        else:
+            guided_rgba_526 = boxx.imread(guided_path)
+            import cv2
+
+            # resize to 1024x1024 to avoid bug in gradio(same size will not load)
+            guided_rgba_526 = boxx.resize(
+                guided_rgba_526, (1024, 1024), interpolation=cv2.INTER_NEAREST
+            )
+            # compress real resolution for fast transport png
+            background = boxx.resize(
+                boxx.resize(background, (128, 128)),
+                (1024, 1024),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            layers = [guided_rgba_526]
         return [
             condition_img,
             dict(
-                background=np.uint8(condition_img.mean(-1)) // 2,
-                layers=[],
+                background=background,
+                layers=layers,
                 composite=None,
             ),
             "",
@@ -210,26 +283,32 @@ with gr.Blocks() as demo:
     example_inputs = []
     example_inputs.append(
         [
-            default_rgb,
+            "random coloring",
+            np.uint8(default_rgb.mean(-1)),
             default_edit,
             "",
         ]
     )
-    _rgb, _edit = read_as_example_input("../../ddn_asset/ffhq_example/FFHQ-00526.png")[
-        :2
-    ]
+    _rgb, rgba_edit = read_as_example_input(
+        f"{ddn_asset_dir}/ffhq_example/FFHQ-00526.png",
+        f"{ddn_asset_dir}/rgba_zscg_example/FFHQ-00526_guided_rgba.png",
+    )[:2]
+
+    # print("layer sum:", tree(rgba_edit["layers"]) or rgba_edit["layers"][0].sum())
     example_inputs.append(
         [
-            np.uint8(_rgb.mean(-1)),
-            _edit,
+            "ZSCG by color stroke",
+            _rgb,
+            rgba_edit,
             "",
         ]
     )
-    _rgb, _edit = read_as_example_input("../../ddn_asset/ffhq_example/FFHQ-test2.png")[
+    _rgb, _edit = read_as_example_input(f"{ddn_asset_dir}/ffhq_example/FFHQ-test2.png")[
         :2
     ]
     example_inputs.append(
         [
+            "ZSCG by CLIP prompt",
             np.uint8(_rgb.mean(-1)),
             _edit,
             "colorful portrait",
@@ -237,20 +316,25 @@ with gr.Blocks() as demo:
     )
     example_inputs.append(
         [
-            *read_as_example_input("../../ddn_asset/ffhq_example/FFHQ-test5.png")[:2],
+            "CLIP + color stroke",
+            *read_as_example_input(
+                f"{ddn_asset_dir}/ffhq_example/FFHQ-test5.png",
+                f"{ddn_asset_dir}/rgba_zscg_example/FFHQ-test5_guided_rgba.png",
+            )[:2],
             "portrait with purple hair",
         ]
     )
     # example_inputs += [
     #     read_as_example_input(png_path)
-    #     for png_path in sorted(glob.glob("../../ddn_asset/ffhq_example/*.png"))
+    #     for png_path in sorted(glob.glob(f"{ddn_asset_dir}/ffhq_example/*.png"))
     # ]
     gr.Examples(
-        # [[example_img, editor_value_example, "null"]] +
         example_inputs,
-        inputs=[upload_block, editor_block, prompt_block],
+        inputs=[description_block, upload_block, editor_block, prompt_block],
         outputs=flatten_results(result_blocks),
         fn=generate,
+        # cache_mode="lazy",
+        # cache_examples=True, # json.decoder.JSONDecodeError: with CLIP
     )
 
     gr.HTML("<hr>")

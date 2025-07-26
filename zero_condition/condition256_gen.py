@@ -146,7 +146,8 @@ class DDNInference:
         samplers = []
         if guided_rgba is not None and guided_rgba[..., -1].sum() > 1:
             guided_rgba = self.process_np_img(guided_rgba)
-            if "align color brightness":
+            if "align color brightness" and 0:
+                print("align color brightness")
                 guided_normalized_tensor = (guided_rgba[:3] + 1) / 2
                 brightness_guided = (guided_normalized_tensor).mean(0, keepdim=True)
                 brightness_condition = ((condition_source + 1) / 2).mean(
@@ -171,7 +172,7 @@ class DDNInference:
         elif len(samplers) > 1:
             batch_sampler = MultiGuidedSampler({s: 1 / len(samplers) for s in samplers})
             d_init["sampler"] = batch_sampler
-        tree(["d_init", d_init, guided_rgba])
+        # tree(["d_init", d_init, guided_rgba])
         d = self.net(d_init)
         stage_last_predicts = {
             "%sx%s" % pred.shape[-2:]: pred for pred in d["predicts"]
