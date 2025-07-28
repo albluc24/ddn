@@ -162,6 +162,7 @@ with gr.Blocks() as demo:
             brush.default_color = "rgb(0,255,0)"
             editor_block = gr.ImageEditor(
                 default_edit,
+                elem_id="color-stroke",
                 label="color stroke",
                 type="numpy",
                 crop_size="1:1",
@@ -187,7 +188,7 @@ with gr.Blocks() as demo:
                 gr.HTML(
                     """<span style="">
                             <br><br><br><br>
-                            JUST click this button to do random coloring:
+                            JUST click this button to do coloring:
                         </span>""",
                     container=False,
                     padding=False,
@@ -359,7 +360,7 @@ with gr.Blocks() as demo:
             gr.HTML(
                 """
             <div style="text-align: right; width: 100%;">
-                <a href="#top" style="text-decoration: none; color: #000;">
+                <a href="#color-stroke" style="text-decoration: none; color: #000;">
                     <button style="border: 1px solid #888; text-align: center; 
                         padding: 10px 20px; border-radius: 5px; cursor: pointer; 
                         margin-left: auto; display: inline-block;">
