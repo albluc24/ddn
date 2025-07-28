@@ -184,9 +184,15 @@ with gr.Blocks() as demo:
                     label="description",
                     visible=False,
                 )
-                gr.HTML("<br><br><br>")
-
-                button = gr.Button("generate")
+                gr.HTML(
+                    """<span style="">
+                            <br><br><br><br>
+                            JUST click this button to do random coloring:
+                        </span>""",
+                    container=False,
+                    padding=False,
+                )
+                button = gr.Button("Generate ➡️")
     gr.HTML("<hr style='padding:0!important'>", container=False)
     upload_block.input(
         input_condition_img_callback,
