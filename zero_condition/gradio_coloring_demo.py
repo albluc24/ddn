@@ -116,7 +116,7 @@ with gr.Blocks() as demo:
     gr.Markdown(
         """# DDN coloring demo
 - [Discrete Distribution Networks (DDN)](https://discrete-distribution-networks.github.io/) is a **novel generative model** with unique properties.
-- This demo primarily showcases DDN's features through a coloring task, particularly highlighting its **Zero-Shot Conditional Generation (ZSCG)** capability.
+- This demo showcases DDN's features through a coloring task, particularly highlighting its **Zero-Shot Conditional Generation (ZSCG)** capability.
 - (Optional) Users can guide generation process using **color strokes** and **CLIP prompts**.
 """
     )
@@ -140,19 +140,26 @@ with gr.Blocks() as demo:
             )
             brush = gr.Brush()
             brush.colors = [
+                "rgb(255,0,0)",
+                "rgb(0,255,0)",
+                "rgb(0,0,255)",
+                "rgb(0,255,255)",
+                "rgb(255,0,255)",
+                "rgb(255,255,0)",
+                "rgb(0,0,0)",
+                "rgb(64,64,64)",
+                "rgb(128,128,128)",
+                "rgb(192,192,192)",
+                "rgb(255,255,255)",
                 "rgb(39,106,167)",
                 "rgb(251,217,196)",
                 "rgb(255,194,116)",
                 "rgb(229,220,138)",
                 "rgb(203,172,225)",
-                "rgb(255,0,0)",
-                "rgb(0,255,0)",
-                "rgb(255,255,0)",
-                "rgb(0,0,255)",
-                "rgb(0,255,255)",
+                "rgb(98, 59, 31)",
             ] + brush.colors
             brush.default_size = 8
-            brush.default_color = brush.colors[0]
+            brush.default_color = "rgb(0,255,0)"
             editor_block = gr.ImageEditor(
                 default_edit,
                 label="color stroke",
@@ -336,7 +343,27 @@ with gr.Blocks() as demo:
         # cache_mode="lazy",
         # cache_examples=True, # json.decoder.JSONDecodeError: with CLIP
     )
-
+    with gr.Row():
+        with gr.Column():
+            gr.Markdown(
+                """*Tip: example with color strokes may cause gradio an UI bug on IOS*"""
+            )
+        with gr.Column():
+            # back to top
+            gr.HTML(
+                """
+            <div style="text-align: right; width: 100%;">
+                <a href="#top" style="text-decoration: none; color: #000;">
+                    <button style="border: 1px solid #888; text-align: center; 
+                        padding: 10px 20px; border-radius: 5px; cursor: pointer; 
+                        margin-left: auto; display: inline-block;">
+                        Back to Top
+                    </button>
+                </a>
+            </div>
+            """,
+                container=False,
+            )
     gr.HTML("<hr>")
 
     # GIF area
@@ -452,4 +479,4 @@ with gr.Blocks() as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(debug=True, server_name="0.0.0.0")
+    demo.launch(debug=True, server_name="0.0.0.0", server_port=17860, show_error=True)
