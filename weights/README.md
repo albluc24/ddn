@@ -1,6 +1,7 @@
 # Weights README
-
-Weights URL: http://113.44.140.251:9000/ddn/weights/
+You can download the weights through two channels:
+- Huggingface Models: https://huggingface.co/diyer22/ddn_asset/tree/main  
+- HTTP server: http://113.44.140.251:9000/ddn/weights/
 
 The weight provided:  
 1. `Recommended File Name`: Description

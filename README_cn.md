@@ -1,8 +1,8 @@
 <a href="https://discrete-distribution-networks.github.io/"><img src="https://img.shields.io/static/v1?label=Page&message=github.io&color=blue"></a>
 <a href="https://arxiv.org/abs/2401.00036"><img src="https://img.shields.io/badge/arXiv-2401.00036-b31b1b.svg"></a>
 <a href="https://openreview.net/forum?id=xNsIfzlefG"><img src="https://img.shields.io/badge/Accepted-ICLR%202025-brightgreen.svg"></a>
-<a href="https://ddn-coloring-demo.diyer22.com/"><img src="https://img.shields.io/badge/Online-Demo-orange)"></a>
-<a href="https://huggingface.co/diyer22/ddn_asset"><img src="https://img.shields.io/badge/HuggingFace-Models-yellow)"></a>
+<a href="https://ddn-coloring-demo.diyer22.com/"><img src="https://img.shields.io/static/v1?label=Online&message=Demo&color=orange"></a>
+<a href="https://huggingface.co/diyer22/ddn_asset"><img src="https://img.shields.io/static/v1?label=HuggingFace&message=Models&color=yellow"></a>
 
 <!-- <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg"></a> -->
 
