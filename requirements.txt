@@ -2,6 +2,11 @@ sddn>=0.0.2
 boxx>=0.10.16
 tqdm
 click
+
+# for demo
+huggingface_hub
+gradio
+git+https://github.com/openai/CLIP.git
 # pytorch
 # torchvision
 

@@ -9,6 +9,7 @@ import threading
 from PIL import Image
 import io
 import os
+
 # pip install gradio huggingface_hub
 import gradio as gr
 from huggingface_hub import hf_hub_download
@@ -266,7 +267,7 @@ with gr.Blocks() as demo:
         outputs=flatten_results(result_blocks),
     )
 
-    example_rgb = boxx.imread(f"{ddn_asset_dir}/ffhq_example/FFHQ-test4.png")
+    example_rgb = boxx.imread(ddn_asset_paths["ffhq_example/FFHQ-test4.png"])
     example_img = np.uint8(
         example_rgb.mean(
             -1,

@@ -16,5 +16,9 @@ CMD ["/bin/bash"]
 # Build docker image
 # docker build --network=host -t diyer22/ddn .
 
-# Run docker container
-# docker run -it --gpus all --net=host -v `pwd`:/workspace --user $(id -u):$(id -g) diyer22/ddn python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn.pkl
+
+# Example command to run generation
+# docker run -it --gpus all --network=host --user $(id -u):$(id -g) -v `pwd`:/workspace -v /tmp/ddn:/tmp -v ~/.cache/huggingface:/root/.cache/huggingface diyer22/ddn python generate.py --debug 0 --batch=10 --seeds=0-99 --network weights/cifar-ddn.pkl
+
+# Example command to run gradio demo
+# docker run -it --gpus all --network=host -v `pwd`:/workspace -v /tmp/ddn:/tmp -v ~/.cache/huggingface:/root/.cache/huggingface diyer22/ddn python zero_condition/gradio_coloring_demo.py

@@ -1,10 +1,10 @@
 <a href="https://discrete-distribution-networks.github.io/"><img src="https://img.shields.io/static/v1?label=Page&message=github.io&color=blue"></a>
 <a href="https://arxiv.org/abs/2401.00036"><img src="https://img.shields.io/badge/arXiv-2401.00036-b31b1b.svg"></a>
 <a href="https://openreview.net/forum?id=xNsIfzlefG"><img src="https://img.shields.io/badge/Accepted-ICLR%202025-brightgreen.svg"></a>
+<a href="https://ddn-coloring-demo.diyer22.com/"><img src="https://img.shields.io/badge/Online-Demo-orange)"></a>
+<a href="https://huggingface.co/diyer22/ddn_asset"><img src="https://img.shields.io/badge/HuggingFace-Models-yellow)"></a>
 
 <!-- <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg"></a> -->
-
-<!-- <a href="https://huggingface.co/spaces/"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)"></a> -->
 
 
 <div align="center">
@@ -140,10 +140,22 @@ torchrun --standalone --nproc_per_node=2 generate.py --seeds=0-49999 --subdirs \
 torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.zip \
   --lr=2e-4 --outdir training-runs --batch-gpu=64 --batch=512 --desc=ffhq256_cond.color \
   --chain-dropout=0.05 --max-outputk=64 --condition=color
-
-# generation with condition
-# TBD
 ```
+
+
+### DDN coloring demo
+```bash
+# 会从 HuggingFace 自动下载权重（可能需要代理）
+python zero_condition/gradio_coloring_demo.py
+```
+将会在本地部署如下 demo:
+
+<div align="center">
+  <a target="_blank" href="https://ddn-coloring-demo.diyer22.com/">
+    <img src="https://discrete-distribution-networks.github.io/img/astronaut_coloring.gif" style="height:">
+  </a>
+  <br>DDN coloring demo <a target="_blank" href="https://ddn-coloring-demo.diyer22.com/">[online]</a>
+</div>
 
 ## ▮ Misc
 ### TODO
@@ -151,10 +163,10 @@ torchrun --standalone --nproc_per_node=8 train.py --data=datasets/ffhq-256x256.z
 - [x] Inference
 - [x] Train
 - [x] [MNIST and 2D toy data](https://github.com/DIYer22/sddn?tab=readme-ov-file#-toy-example-for-2d-density-estimation)
-- [ ] Zero-Shot Conditional Generation
-- [ ] Support CPU inference
-- [ ] Upload weights to HF
-- [ ] Online demo of ZSCG on coloring task
+- [x] Zero-Shot Conditional Generation
+- [x] Upload weights to HF
+- [x] Online demo of ZSCG on coloring task
+<!-- - [ ] Support CPU inference -->
 ### Citation
 ```bibtex
 @inproceedings{yang2025discrete,
