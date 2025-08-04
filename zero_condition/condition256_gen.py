@@ -97,39 +97,15 @@ def crop_and_resize(img: np.ndarray, out_hw=(256, 256)) -> np.ndarray:
     return np.asarray(resized, dtype=img.dtype)
 
 
-clip_model = None
-
-
-def get_clip_model():
-    with threading.Lock():
-        global clip_model
-        if clip_model is None:
-            import clip
-
-            clip_model = clip.load("ViT-B/32", device="cuda")
-        return clip_model
-
-
-class CLIPSamplerWithoutModle(CLIPSampler):
-    def __init__(self, target, clip_model):
-        import clip
-
-        self.raw = target
-        self.model, transform = clip_model
-        # self.model =
-        with torch.no_grad():
-            tokens = clip.tokenize([target]).to("cuda")
-            self.target = self.model.encode_text(tokens)
-
-
 class DDNInference:
     def __init__(self, weight_path, hw=(256, 256)):
         self.net = load_net(weight_path)
         self.hw = hw
 
     def inference(self, inf_arg):
-        d_init = dict(condition_source=condition_source)
-        d = self.net(d_init)
+        # d_init = dict(condition_source=condition_source)
+        # d = self.net(d_init)
+        pass
 
     def process_np_img(self, img):
         # resize with PIL
@@ -162,8 +138,7 @@ class DDNInference:
             rgba_sampler = DistanceSamplerWithAlphaChannelTopk(guided_rgba)
             samplers.append(rgba_sampler)
         if clip_prompt is not None and clip_prompt not in ["", "null"]:
-            clip_model = get_clip_model()
-            clip_sampler = CLIPSamplerWithoutModle(clip_prompt, clip_model)
+            clip_sampler = CLIPSampler(clip_prompt, keep_model_in_memory=True)
             samplers.append(clip_sampler)
         d_init = dict(condition_source=torch.cat([condition_source[None]] * n_samples))
         if len(samplers) == 1:
@@ -181,7 +156,7 @@ class DDNInference:
             k: list(t2rgb(v)) for k, v in stage_last_predicts.items()
         }
         d["stage_last_predicts_np"] = stage_last_predicts_np
-        mg()
+        boxx.mg()
         # shows(t2rgb(d["predict"]), png=True)
         return d
 

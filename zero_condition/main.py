@@ -12,6 +12,7 @@ import math
 import torch
 import random
 import torch.nn.functional as F
+import threading
 
 with boxx.inpkg(), boxx.impt(".."):
     from ddn_utils import *
@@ -577,7 +578,10 @@ def FaceRecognizeSampler(target):
 
 
 class CLIPSampler:
-    def __init__(self, target):
+    model_in_memory = None
+    lock = threading.Lock()
+
+    def __init__(self, target, keep_model_in_memory=False):
         import clip
 
         self.raw = target
@@ -585,15 +589,25 @@ class CLIPSampler:
         # model_name = 'RN50' # 244M  # 0.09297562
         # model_name = 'RN50x64' # 1.26G
         device = "cuda"
-        self.model, transform = clip.load(model_name, device=device)
-        # self.model =
+        # self.dtype = torch.float16 if torch.cuda.is_available() else torch.float32  # RuntimeError: expected scalar type Float but found Half
+        self.dtype = torch.float32
+        with CLIPSampler.lock:
+            if keep_model_in_memory and CLIPSampler.model_in_memory is not None:
+                self.model = CLIPSampler.model_in_memory
+            else:
+                self.model, transform = clip.load(model_name, device=device)
+                self.model = self.model.to(device)  #
+                # looks like clip.load already set float16
+                # if do .to(float32)  will slow 2x times.
+                if keep_model_in_memory:
+                    CLIPSampler.model_in_memory = self.model
         with torch.no_grad():
             tokens = clip.tokenize([target]).to(device)
             self.target = self.model.encode_text(tokens)
 
     def __call__(self, dic):
-        rgbs = dic["rgbs"]
-        dtpye = rgbs.dtype
+        rgbs = dic["rgbs"]  # .to(self.dtype)
+        dtype = rgbs.dtype
         device = rgbs.device
         mean = (
             torch.Tensor([0.48145466, 0.4578275, 0.40821073])
@@ -602,7 +616,6 @@ class CLIPSampler:
                 1,
                 1,
             )
-            .to(dtpye)
             .to(device)
         )
         std = (
@@ -612,7 +625,6 @@ class CLIPSampler:
                 1,
                 1,
             )
-            .to(dtpye)
             .to(device)
         )
         rgbs = ((rgbs + 1) / 2 - mean) / std
