@@ -162,13 +162,26 @@ class DDNInference:
 
 
 if __name__ == "__main__":
+    from huggingface_hub import hf_hub_download
+
     weight_path = "../../ddn_asset/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
-    ddn = sys._getframe(6).f_globals.get("ddn")
+    test_img_path = "../../ddn_asset/ffhq_example/FFHQ-test4.png"
+
+    if not os.path.exists(weight_path) or not os.path.exists(test_img_path):
+        weight_path = hf_hub_download(
+            repo_id="diyer22/ddn_asset",
+            filename="v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl",
+        )
+        test_img_path = hf_hub_download(
+            repo_id="diyer22/ddn_asset", filename="ffhq_example/FFHQ-test4.png"
+        )
+    # ddn = sys._getframe(6).f_globals.get("ddn")
+    ddn = None
     if ddn is None:
         print("loading weight")
         ddn = DDNInference(weight_path)
         print(ddn.net.model.table())
-    condition_rgb = imread("../../ddn_asset/ffhq_example/FFHQ-test4.png")
+    condition_rgb = imread(test_img_path)
     guided_rgba = np.uint8(condition_rgb[:] * 0 + [[(255, 0, 0)]])
     mask = np.ones_like(guided_rgba)[..., :1] * 0
     mask[: len(mask) // 10 :, : len(mask) // 10] = 255
@@ -185,7 +198,7 @@ if __name__ == "__main__":
     )
     shows(
         condition_rgb,
-        guided_rgba,
+        # guided_rgba,
         t2rgb(d["predict"]),
         png=True,
     )

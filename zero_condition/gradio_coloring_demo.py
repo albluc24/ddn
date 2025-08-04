@@ -4,17 +4,46 @@ import boxx
 from boxx import *
 import time
 import numpy as np
-import gradio as gr
 from condition256_gen import DDNInference, crop_and_resize
 import threading
 from PIL import Image
 import io
+import os
+# pip install gradio huggingface_hub
+import gradio as gr
+from huggingface_hub import hf_hub_download
 
 H, W = 256, 256
-
 ddn = None
 
+
 ddn_asset_dir = "../../ddn_asset"
+ddn_asset_filenames = [
+    "v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl",
+    "ffhq_example/FFHQ-test4.png",
+    "ffhq_example/FFHQ-00526.png",
+    "rgba_zscg_example/FFHQ-00526_guided_rgba.png",
+    "ffhq_example/FFHQ-test2.png",
+    "ffhq_example/FFHQ-test5.png",
+    "rgba_zscg_example/FFHQ-test5_guided_rgba.png",
+]
+ddn_asset_paths = {
+    filename: f"{ddn_asset_dir}/{filename}" for filename in ddn_asset_filenames
+}
+for filename, v in ddn_asset_paths.items():
+    if not os.path.exists(v):
+        try:
+            ddn_asset_paths[filename] = hf_hub_download(
+                repo_id="diyer22/ddn_asset",
+                filename=filename,
+                local_files_only=True,
+                etag_timeout=1,
+            )
+        except Exception as e:
+            print(f"Downloading {filename}")
+            ddn_asset_paths[filename] = hf_hub_download(
+                repo_id="diyer22/ddn_asset", filename=filename
+            )
 
 
 def get_model():
@@ -22,13 +51,16 @@ def get_model():
         global ddn
         if ddn is None:
             ddn = DDNInference(
-                f"{ddn_asset_dir}/v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
+                ddn_asset_paths[
+                    "v32-00003-ffhq-256x256-ffhq256_cond.color_chain.dropout0.05_batch64_k64-shot-200000.pkl"
+                ]
             )
         return ddn
 
 
 def generate(example_description, input_condition_img, editor_value, prompt_value=None):
-    tree([example_description, input_condition_img, editor_value, prompt_value])
+    print(f"{boxx.localTimeStr(True)} {boxx.increase('requests')}th requests")
+    boxx.tree([example_description, input_condition_img, editor_value, prompt_value])
     # print("layer sum:", tree(editor_value["layers"]) or editor_value["layers"][0].sum())
     ddn = get_model()
     n = n_samples
@@ -43,8 +75,7 @@ def generate(example_description, input_condition_img, editor_value, prompt_valu
     )
     stage_last_predicts = d["stage_last_predicts_np"]
     # tree(stage_last_predicts)
-    # dump to /tmp with timestamp for debugging
-    if 0:
+    if 0:  # dump to /tmp with timestamp for debugging
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         if guided_rgba is not None:
             boxx.imsave(
@@ -118,13 +149,14 @@ with gr.Blocks() as demo:
 - [Discrete Distribution Networks (DDN)](https://discrete-distribution-networks.github.io/) is a **novel generative model** with unique properties.
 - This demo showcases DDN's features through a coloring task, particularly highlighting its **Zero-Shot Conditional Generation (ZSCG)** capability.
 - (Optional) Users can guide generation process using **color strokes** and **CLIP prompts**.
+- This DDN model is trained on face dataset (FFHQ) with $K=64$, $L=55$ 
 """
     )
     gr.HTML("<hr style='padding:0!important'>", container=False)
     with gr.Row():
         with gr.Row():
             default_rgb = read_as_input_condition_img(
-                f"{ddn_asset_dir}/ffhq_example/FFHQ-test4.png"
+                ddn_asset_paths["ffhq_example/FFHQ-test4.png"]
             )
             default_edit = dict(
                 background=np.uint8(default_rgb.mean(-1)) // 2,
@@ -304,8 +336,8 @@ with gr.Blocks() as demo:
         ]
     )
     _rgb, rgba_edit = read_as_example_input(
-        f"{ddn_asset_dir}/ffhq_example/FFHQ-00526.png",
-        f"{ddn_asset_dir}/rgba_zscg_example/FFHQ-00526_guided_rgba.png",
+        ddn_asset_paths["ffhq_example/FFHQ-00526.png"],
+        ddn_asset_paths["rgba_zscg_example/FFHQ-00526_guided_rgba.png"],
     )[:2]
 
     # print("layer sum:", tree(rgba_edit["layers"]) or rgba_edit["layers"][0].sum())
@@ -317,7 +349,7 @@ with gr.Blocks() as demo:
             "",
         ]
     )
-    _rgb, _edit = read_as_example_input(f"{ddn_asset_dir}/ffhq_example/FFHQ-test2.png")[
+    _rgb, _edit = read_as_example_input(ddn_asset_paths["ffhq_example/FFHQ-test2.png"])[
         :2
     ]
     example_inputs.append(
@@ -332,8 +364,8 @@ with gr.Blocks() as demo:
         [
             "CLIP + color stroke",
             *read_as_example_input(
-                f"{ddn_asset_dir}/ffhq_example/FFHQ-test5.png",
-                f"{ddn_asset_dir}/rgba_zscg_example/FFHQ-test5_guided_rgba.png",
+                ddn_asset_paths["ffhq_example/FFHQ-test5.png"],
+                ddn_asset_paths["rgba_zscg_example/FFHQ-test5_guided_rgba.png"],
             )[:2],
             "portrait with purple hair",
         ]
