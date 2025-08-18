@@ -4,6 +4,7 @@
 <a href="https://ddn-coloring-demo.diyer22.com/"><img src="https://img.shields.io/static/v1?label=Online&message=Demo&color=orange"></a>
 <a href="https://huggingface.co/diyer22/ddn_asset/tree/main"><img src="https://img.shields.io/static/v1?label=HuggingFace&message=Models&color=yellow"></a>
 <a href="README_cn.md"><img src="https://img.shields.io/badge/Language-中文-lightgrey.svg"></a>
+<a href="https://github.com/Discrete-Distribution-Networks/Discrete-Distribution-Networks.github.io/blob/main/blog_en.md"><img src="https://img.shields.io/badge/Blog-English-00ab6c.svg"></a>
 
 
 
@@ -57,9 +58,10 @@ DDN employs a simple yet unique approach to model the target distribution, disti
 2. It utilizes these simultaneously generated outputs to fit the target distribution of the training data.
 3. These outputs collectively represent a discrete distribution, which is the origin of the name "Discrete Distribution Networks."
 
-Every generative model has its unique characteristics, and DDN is no exception. We will highlight two distinctive capabilities of DDN:
+Every generative model has its unique characteristics, and DDN is no exception. We will highlight three key features of DDN:
 - Zero-Shot Conditional Generation without gradient computation.
-- Tree-Structured 1D Discrete Latent variables.
+- Tree-Structured 1D Discrete Latent Variables.
+- Fully End-to-End Differentiable.
 
 See:
 - Paper: https://arxiv.org/abs/2401.00036  

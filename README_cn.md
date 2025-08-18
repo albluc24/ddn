@@ -3,6 +3,7 @@
 <a href="https://openreview.net/forum?id=xNsIfzlefG"><img src="https://img.shields.io/badge/Accepted-ICLR%202025-brightgreen.svg"></a>
 <a href="https://ddn-coloring-demo.diyer22.com/"><img src="https://img.shields.io/static/v1?label=Online&message=Demo&color=orange"></a>
 <a href="https://huggingface.co/diyer22/ddn_asset/tree/main"><img src="https://img.shields.io/static/v1?label=HuggingFace&message=Models&color=yellow"></a>
+<a href="https://zhuanlan.zhihu.com/p/1935903948990047972"><img src="https://img.shields.io/badge/Blog-知乎-blue.svg"></a>
 
 <!-- <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg"></a> -->
 
@@ -58,9 +59,11 @@ DDN 采用一种简洁且独特的方法来建模目标分布，与主流生成�
 2. 利用这些一次性生成的多个输出来拟合训练数据的目标分布。
 3. 这些输出共同表示一个离散分布，这也是“离散分布网络”名称的由来。
 
-每个生成模型都有其独特的特性，DDN 也不例外。我们将重点介绍 DDN 的两个特有能力：
-- 无需计算梯度即可实现 零样本条件生成（Zero-Shot Conditional Generation）。
-- 具有树状结构的一维离散潜变量（Tree-Structured 1D Discrete Latent）。
+每个生成模型都有其独特的特性，DDN 也不例外。我们将重点介绍 DDN 的三个特性：
+- 零样本条件生成 (Zero-Shot Conditional Generation, ZSCG)
+- 树状结构的一维离散潜变量 (Tree-Structured 1D Discrete Latent)
+- 完全的端到端可微分 (Fully End-to-End Differentiable)
+
 
 参见：
 - Paper: https://arxiv.org/abs/2401.00036  
