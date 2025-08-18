@@ -185,7 +185,7 @@ if __name__ == "__main__":
     guided_rgba = np.uint8(condition_rgb[:] * 0 + [[(255, 0, 0)]])
     mask = np.ones_like(guided_rgba)[..., :1] * 0
     mask[: len(mask) // 10 :, : len(mask) // 10] = 255
-    guided_rgba = np.concatenate([guided_rgba // 2, mask], axis=-1)
+    guided_rgba_np = np.concatenate([guided_rgba // 2, mask], axis=-1)
     # guided_rgba = None
     clip_prompt = "Portrait with light blue background"
     clip_prompt = "Portrait of retro tones, warm"
@@ -194,11 +194,11 @@ if __name__ == "__main__":
     # clip_prompt = "Portrait, healthy skin tone, dark brown hair"
     clip_prompt = ""
     d = ddn.coloring_demo_inference(
-        condition_rgb, n_samples=6, guided_rgba=guided_rgba, clip_prompt=clip_prompt
+        condition_rgb, n_samples=6, guided_rgba=guided_rgba_np, clip_prompt=clip_prompt
     )
     shows(
         condition_rgb,
-        # guided_rgba,
+        guided_rgba_np,
         t2rgb(d["predict"]),
         png=True,
     )
