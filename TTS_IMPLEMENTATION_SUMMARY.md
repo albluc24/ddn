@@ -19,7 +19,7 @@ Successfully implemented a **trainable MVP of a TTS model** based on the DDN (Di
 **Text Encoder & Duration Model** (`tts_model/networks/text_encoder.py` - 380 lines)
 - `TextEncoder`: Conv1D-based encoder with positional encoding
 - `DurationPredictor`: Predicts mel frame duration per text token
-- `MonotonicAlignmentSearch`: MAS stub with external alignment support
+- `MonotonicAlignmentSearch`: MAS stub implementation (ready for drop-in replacements)
 - `DurationAlignmentModule`: Combined duration prediction and text expansion
 
 **Main TTS Model** (`tts_model/networks/tts_model.py` - 273 lines)
@@ -144,8 +144,9 @@ To use this TTS model in production:
    - Convert mel-spectrograms to waveforms
 
 4. **Training**
-   - Train on real dataset for 100+ epochs
+   - Train on real dataset until convergence (monitor validation loss)
    - Tune hyperparameters (learning rate, batch size, etc.)
+   - Use early stopping based on validation metrics
 
 5. **Evaluation**
    - Add metrics (MCD, MOS, intelligibility)
@@ -176,7 +177,7 @@ tts_demo.py                      # Demo script (308 lines)
 TTS_QUICKSTART.md                # Quick start guide
 ```
 
-**Total: ~2,500 lines of production-ready code**
+**Total: ~2,500 lines of MVP code (ready for production enhancement)**
 
 ## Migration Checklist (from tts_migration.md)
 
