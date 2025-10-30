@@ -9,6 +9,10 @@ fid-*
 exps/
 *.pkl
 
+# TTS outputs
+checkpoints/
+outputs/
+
 # gradio
 .gradio
 
